@@ -13,37 +13,30 @@ namespace Arqui_Simulacion
 {
     public partial class Form1 : Form
     {
+        private int[] RAM;
 
-        private int numero;
         public Form1()
         {
             InitializeComponent();
 
-             numero = 5;
+            RAM = new int[512];
 
-            Thread thread = new Thread( new ThreadStart(controlador));
-            thread.Start();
-
-
-            primerNucleo();
-
-            thread.Abort();
         }
 
         public void controlador()
         {
-            numero = 10;
+
 
         }
 
         public void primerNucleo()
         {
-            segundoNucleo();
+           
         }
 
         public void segundoNucleo()
         {
-            MessageBox.Show(""+numero);
+           
         }
 
     }
