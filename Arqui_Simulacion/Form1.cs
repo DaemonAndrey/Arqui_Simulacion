@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Collections;
 using System.Windows.Forms;
 
 namespace Arqui_Simulacion
@@ -29,6 +30,7 @@ namespace Arqui_Simulacion
 
         private int[,] PCB;
 
+
         public Form1()
         {
             InitializeComponent();
@@ -40,25 +42,35 @@ namespace Arqui_Simulacion
             cache_datos_nucleo1 = new int[8,4];
             cache_datos_nucleo2 = new int[8,4];
 
-            cache_instrucciones_nucleo1 = new int[8,4];
-            cache_instrucciones_nucleo2 = new int[8,4];
+            cache_instrucciones_nucleo1 = new int[8,16];
+            cache_instrucciones_nucleo2 = new int[8,16];
 
-            PCB = new int[6,33];
+            PCB = new int[6,33]; //De momento se define con un tamaño fijo, luego por entrada de interfaz
 
             Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
             control.Start();
 
-            
+
 
 
         }
 
         public void controlador()
         {
+            Queue colaRR = new Queue(); 
+
             Thread nucleo1 = new Thread(new ThreadStart(nucleo));
             nucleo1.Start();
             Thread nucleo2 = new Thread(new ThreadStart(nucleo));
             nucleo2.Start();
+
+            reloj = 0;
+
+            while(colaRR.Count != 0)
+            {
+                
+            }
+
 
         }
 
