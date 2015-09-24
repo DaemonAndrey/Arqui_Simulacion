@@ -30,6 +30,7 @@ namespace Arqui_Simulacion
 
         private int[,] PCB;
 
+        private bool fin_programa;
 
         public Form1()
         {
@@ -76,7 +77,10 @@ namespace Arqui_Simulacion
 
         public void nucleo()
         {
-           
+           while(!fin_programa)
+           {
+            
+           }
         }
 
 
