@@ -36,6 +36,7 @@ namespace Arqui_Simulacion
         {
             InitializeComponent();
 
+
             RAM = new int[512];
             registro_nucleo1 = new int[32];
             registro_nucleo2 = new int[32];
@@ -55,6 +56,8 @@ namespace Arqui_Simulacion
 
 
         }
+
+
 
         public void controlador()
         {
@@ -96,11 +99,25 @@ namespace Arqui_Simulacion
             OpenFileDialog open = new OpenFileDialog();
             if (open.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                System.IO.StreamReader sr = new
-                   System.IO.StreamReader(open.FileName);
+                System.IO.StreamReader sr = new System.IO.StreamReader(open.FileName);
                 MessageBox.Show(sr.ReadToEnd());
                 sr.Close();
             }
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void radioButton1_CheckedChanged(object sender, EventArgs e)
+        {
+            button2.Visible = true;
+        }
+
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            button2.Visible = false;
         }
 
     }
