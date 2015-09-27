@@ -32,23 +32,33 @@ namespace Arqui_Simulacion
 
         private bool fin_programa;
 
+        private List<int> colaRR; //Simula la cola para el round Robin
+        private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
+
+        private int hilo; //Variable que indica si hay un hilo para ejecución
+
         public Form1()
         {
+            colaRR = new List<int>(); //Creamos el calendarizador
+            mapaContexto = new Dictionary<int, int>(); //<id del proceso, puntero al contexto>
+
+
             InitializeComponent();
 
             default_values();
+
+            hilo = -1;
 
             RAM = new int[2048];
             registro_nucleo1 = new int[32];
             registro_nucleo2 = new int[32];
 
-            cache_datos_nucleo1 = new int[8,4];
-            cache_datos_nucleo2 = new int[8,4];
+            cache_datos_nucleo1 = new int[8, 16];
+            cache_datos_nucleo2 = new int[8, 16];
 
-            cache_instrucciones_nucleo1 = new int[8,16];
-            cache_instrucciones_nucleo2 = new int[8,16];
+            cache_instrucciones_nucleo1 = new int[8, 16];
+            cache_instrucciones_nucleo2 = new int[8, 16];
 
-            PCB = new int[6,33]; //De momento se define con un tamaño fijo, luego por entrada de interfaz
 
           //  Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
            // control.Start();
@@ -65,19 +75,27 @@ namespace Arqui_Simulacion
 
         public void controlador()
         {
-            Queue colaRR = new Queue(); //Creamos el calendarizador
-            Queue colaContexto = new Queue(); 
+
+            int contador = 0;
 
             Thread nucleo1 = new Thread(new ThreadStart(nucleo));
+            nucleo1.Name = "nucleo1";
             nucleo1.Start();
             Thread nucleo2 = new Thread(new ThreadStart(nucleo));
+            nucleo2.Name = "nucleo2";
             nucleo2.Start();
 
             reloj = 0;
 
             while(colaRR.Count != 0)
             {
+                contador = (contador == (colaRR.Count - 1)) ? 0 : contador; // Si ya llegamos al final
+                //Devuelvase al inicio de la cola, si no, siga en donde está
+
+                hilo = contador;
+
                 
+                ++contador;
             }
 
 
@@ -116,52 +134,73 @@ namespace Arqui_Simulacion
 
         private void button1_Click(object sender, EventArgs e)
         {
-            int pointer = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
-            OpenFileDialog open = new OpenFileDialog();
-            System.IO.StreamReader sr;
+            int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
+            OpenFileDialog archivador = new OpenFileDialog();
+            
             int[] temporal; //guarda el un array de int's temporal
-            String line;
-            int counter = 0;
+            String linea;
+            int contador = 0;
+            System.IO.StreamReader sr;
 
-            open.Multiselect = true; //permite seleccionar mas de un archivo
-            open.Title = "Seleccione los hilos";
-            open.Filter = "All files(*.txt)|*.txt";
+            archivador.Multiselect = true; //permite seleccionar mas de un archivo
+            archivador.Title = "Seleccione los hilos";
+            archivador.Filter = "All files(*.txt)|*.txt";
 
-            if (open.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (archivador.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                foreach(String file in open.FileNames)
+                foreach(String file in archivador.FileNames)
                 {
-                    ++counter;
+                    ++contador;
 
-                   sr = new System.IO.StreamReader(file);                   
 
-                    line = sr.ReadLine();
-                    while((line != null) && (line != ""))
-                    {
+                    colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
+                    //En este caso usaremos como id del hilo, la direccion en memoria
+                    //donde inicia el hilo
 
-                       temporal = line.Split(' ').Select(int.Parse).ToArray();
-                       
-                        for (int i = 0; i < 4; ++i, ++pointer )
-                        {
-                            RAM[pointer] = temporal[i];
-                        }
+                   sr = new System.IO.StreamReader(file);
+                   cargarRAM(ref sr, ref puntero);
+                   sr.Close();
 
-                        line = sr.ReadLine();
-                    }
-
-                    sr.Close();
                 }       
                 
             }
 
-            if((int.Parse(textBox1.Text) != counter) && (counter > 0))
+
+            if ((int.Parse(textBox1.Text) != contador) && (contador > 0))
             {
-                textBox1.Text = "" + counter;
+                textBox1.Text = "" + contador;
 
-                MessageBox.Show("El parámetro que usted especificó para la cantidad de hilos "+
+                MessageBox.Show("El parámetro que usted especificó para la cantidad de hilos " +
                 "no coincide con la cantidad de archivos que escogió, pero lo hemos cambiado, no se preocupe.",
-                "Información",MessageBoxButtons.OK,MessageBoxIcon.Information);
+                "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
+            }
+
+            for (int i = 0; i < colaRR.Count; ++i )
+            {
+                MessageBox.Show(""+colaRR[i]);
+            }
+        }
+
+        private void cargarRAM(ref System.IO.StreamReader sr, ref int puntero)
+        {
+            String linea;
+            int[] temporal;
+
+
+            linea = sr.ReadLine();
+            while ((linea != null) && (linea != ""))
+            {
+
+                temporal = linea.Split(' ').Select(int.Parse).ToArray();
+
+                for (int i = 0; i < 4; ++i, ++puntero)
+                {
+                    RAM[puntero] = temporal[i];
+                }
+
+                linea = sr.ReadLine();
+                
             }
         }
 
@@ -173,6 +212,12 @@ namespace Arqui_Simulacion
             {
                 button1.Enabled = true;
             }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            PCB = new int[int.Parse(textBox1.Text), 33]; //Iinicializamos el PCB (Process Control Block)
+
         }
 
 
