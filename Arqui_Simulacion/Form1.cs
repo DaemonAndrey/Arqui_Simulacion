@@ -26,16 +26,27 @@ namespace Arqui_Simulacion
         private int[,] cache_instrucciones_nucleo1;
         private int[,] cache_instrucciones_nucleo2;
 
+        private int[] bloques_cache_instrucciones_nucleo1; //indica el número de bloques que están en caché
+
+        private int[] hilo_a_ejecutar; //indica cual hilo va a ejecutar cada núcleo
+
+        private bool[] fin_hilos; //indica cuales hilos ya terminaron
+
         private long reloj;
 
         private bool finPrograma;
 
         private int[,] PCB;
 
+        private int PC1;
+        private int PC2;
+
         private List<int> colaRR; //Simula la cola para el round Robin
         private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
 
         private int hilo; //Variable que indica si hay un hilo para ejecución
+
+        private int numHilos;  //indica cuántos hilos de MIPS (archivos) tiene el programa
 
         public Form1()
         {
@@ -58,6 +69,10 @@ namespace Arqui_Simulacion
 
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
+
+            hilo_a_ejecutar = new int[2];
+
+            fin_hilos = new bool[6];
 
 
           //  Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
@@ -103,11 +118,61 @@ namespace Arqui_Simulacion
 
         public void nucleo()
         {
+            int quantum;
+            int [] instruccion = new int[4];
+            bool aciertoCache = false;
             while (!finPrograma)
             {
                 if (Thread.CurrentThread.Name == "Nucleo1")
                 {
+                    int numHilo1 = hilo_a_ejecutar[0];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
+                    for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
+                    {
+                        registro_nucleo1[i] = PCB[numHilo1, i];
+                    }
+                    while (quantum != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
+                    {
+                        int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
+                        int i = 0;
+                        while (i < numHilos && !aciertoCache)    //busca el bloque en caché
+                        {
+                            if (numBloque == bloques_cache_instrucciones_nucleo1[i])
+                            {
+                                aciertoCache = true;
+                            }
+                        }
 
+                        /** Aquí va el fallo de caché **/
+                        if (!aciertoCache)
+                        {
+
+                        }
+
+                        int numInstruccion = PC1 % 4;
+                        for (int j = numInstruccion; j < numInstruccion + 4; j++)
+                        {
+                            instruccion[j] = cache_instrucciones_nucleo1[i, j];
+                        }
+                        PC1 += 4;
+                        ejecutarInstruccion(ref instruccion);
+                        quantum--;
+                    }
+                    if (quantum == 0 && !fin_hilos[numHilo1])
+                    {
+                        for (int i = 0; i < 32; i++)    //guarda el contexto (falta PC)
+                        {
+                            PCB[numHilo1, i] = registro_nucleo1[i];
+                        }
+                    }
+                }
+
+                else if (Thread.CurrentThread.Name == "Nucleo2")
+                {
+                    int numHilo2 = hilo_a_ejecutar[1];
+                    for (int i = 0; i < 32; i++)
+                    {
+                        registro_nucleo2[i] = PCB[numHilo2, i];
+                    }
                 }
             }
         }
@@ -223,7 +288,41 @@ namespace Arqui_Simulacion
 
         }
 
+        private void ejecutarInstruccion(ref int[] ins)
+        {
+            switch (ins[0])
+            {
+                case 8: //ADDI
+                    break;
 
+                case 32: //ADD
+                    break;
+
+                case 34: //SUB
+                    break;
+
+                case 12: //MUL
+                    break;
+
+                case 14: //DIV
+                    break;
+
+                case 4: //BEQZ
+                    break;
+
+                case 5: //BNEZ
+                    break;
+
+                case 3: //JAL
+                    break;
+
+                case 2: //JR
+                    break;
+
+                case 63: //FIN
+                    break;
+            }
+        }
 
         
 
