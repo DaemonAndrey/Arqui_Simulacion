@@ -48,6 +48,8 @@ namespace Arqui_Simulacion
 
         private int numHilos;  //indica cuántos hilos de MIPS (archivos) tiene el programa
 
+        private ArrayList bus;
+
         public Form1()
         {
             colaRR = new List<int>(); //Creamos el calendarizador
@@ -57,8 +59,6 @@ namespace Arqui_Simulacion
             InitializeComponent();
 
             default_values();
-
-            hilo = -1;
 
             RAM = new int[2048];
             registro_nucleo1 = new int[32];
@@ -73,6 +73,8 @@ namespace Arqui_Simulacion
             hilo_a_ejecutar = new int[2];
 
             fin_hilos = new bool[6];
+
+            bus = new ArrayList(4);
 
 
           //  Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
@@ -125,7 +127,8 @@ namespace Arqui_Simulacion
             {
                 if (Thread.CurrentThread.Name == "Nucleo1")
                 {
-                    int numHilo1 = hilo_a_ejecutar[0];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
+                    int dirHilo = hilo_a_ejecutar[0];
+                    int numHilo1 = mapaContexto[hilo_a_ejecutar[0]];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
                     for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
                     {
                         registro_nucleo1[i] = PCB[numHilo1, i];
@@ -154,7 +157,7 @@ namespace Arqui_Simulacion
                             instruccion[j] = cache_instrucciones_nucleo1[i, j];
                         }
                         PC1 += 4;
-                        ejecutarInstruccion(ref instruccion);
+                        ejecutarInstruccion1(ref instruccion, numHilo1);
                         quantum--;
                     }
                     if (quantum == 0 && !fin_hilos[numHilo1])
@@ -163,17 +166,13 @@ namespace Arqui_Simulacion
                         {
                             PCB[numHilo1, i] = registro_nucleo1[i];
                         }
+
+                        /** Indicar que núcleo está libre **/
+                    
                     }
                 }
 
-                else if (Thread.CurrentThread.Name == "Nucleo2")
-                {
-                    int numHilo2 = hilo_a_ejecutar[1];
-                    for (int i = 0; i < 32; i++)
-                    {
-                        registro_nucleo2[i] = PCB[numHilo2, i];
-                    }
-                }
+                
             }
         }
 
@@ -288,38 +287,108 @@ namespace Arqui_Simulacion
 
         }
 
-        private void ejecutarInstruccion(ref int[] ins)
+        private void ejecutarInstruccion1(ref int[] ins, int numHilo)
         {
             switch (ins[0])
             {
                 case 8: //ADDI
+                    registro_nucleo1[ins[2]] = registro_nucleo1[ins[1]] + ins[3];
                     break;
 
                 case 32: //ADD
+                    registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] + registro_nucleo1[ins[2]];
                     break;
 
                 case 34: //SUB
+                    registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] - registro_nucleo1[ins[2]];
                     break;
 
                 case 12: //MUL
+                    registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] * registro_nucleo1[ins[2]];
                     break;
 
                 case 14: //DIV
+                    registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] / registro_nucleo1[ins[2]];
                     break;
 
                 case 4: //BEQZ
+                    if (registro_nucleo1[ins[1]] == 0)
+                    {
+                        PC1 = ins[3];
+                    }
                     break;
 
                 case 5: //BNEZ
+                    if (registro_nucleo1[ins[1]] != 0)
+                    {
+                        PC1 = ins[3];
+                    }
                     break;
 
                 case 3: //JAL
+                    registro_nucleo1[31] = PC1;
+                    PC1 += ins[3];
                     break;
 
                 case 2: //JR
+                    PC1 = registro_nucleo1[ins[1]];
                     break;
 
                 case 63: //FIN
+                    fin_hilos[numHilo] = true;
+                    break;
+            }
+        }
+
+        private void ejecutarInstruccion2(ref int[] ins, int numHilo)
+        {
+            switch (ins[0])
+            {
+                case 8: //ADDI
+                    registro_nucleo2[ins[2]] = registro_nucleo2[ins[1]] + ins[3];
+                    break;
+
+                case 32: //ADD
+                    registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] + registro_nucleo2[ins[2]];
+                    break;
+
+                case 34: //SUB
+                    registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] - registro_nucleo2[ins[2]];
+                    break;
+
+                case 12: //MUL
+                    registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] * registro_nucleo2[ins[2]];
+                    break;
+
+                case 14: //DIV
+                    registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] / registro_nucleo2[ins[2]];
+                    break;
+
+                case 4: //BEQZ
+                    if (registro_nucleo2[ins[1]] == 0)
+                    {
+                        PC2 = ins[3];
+                    }
+                    break;
+
+                case 5: //BNEZ
+                    if (registro_nucleo2[ins[1]] != 0)
+                    {
+                        PC2 = ins[3];
+                    }
+                    break;
+
+                case 3: //JAL
+                    registro_nucleo2[31] = PC2;
+                    PC2 += ins[3];
+                    break;
+
+                case 2: //JR
+                    PC2 = registro_nucleo1[ins[1]];
+                    break;
+
+                case 63: //FIN
+                    fin_hilos[numHilo] = true;
                     break;
             }
         }
