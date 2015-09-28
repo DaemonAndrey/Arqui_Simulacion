@@ -50,6 +50,13 @@ namespace Arqui_Simulacion
         private int tiempoTransferencia;
         private bool modoLento;
 
+        private WaitHandle[] banderas_nucleos_controlador;
+
+        private AutoResetEvent bandera_nucleo1_controlador;
+        private AutoResetEvent bandera_nucleo2_controlador;
+
+        private AutoResetEvent bandera_controlador_nucleo1;
+        private AutoResetEvent bandera_controlador_nucleo2;
 
         private ArrayList bus;
 
@@ -83,6 +90,13 @@ namespace Arqui_Simulacion
 
             bus = new ArrayList(4);
 
+            banderas_nucleos_controlador = new WaitHandle[2];
+
+            bandera_nucleo1_controlador = new AutoResetEvent(false);
+            bandera_nucleo2_controlador = new AutoResetEvent(false);
+
+            banderas_nucleos_controlador[0] = bandera_nucleo1_controlador;
+            banderas_nucleos_controlador[1] = bandera_nucleo2_controlador;
 
         }
 
@@ -103,17 +117,25 @@ namespace Arqui_Simulacion
             nucleo2.Name = "nucleo2";
             nucleo2.Start();
 
-            reloj = 0;
+            reloj = -1;
 
             while(colaRR.Count != 0)
             {
                 contador = (contador == (colaRR.Count - 1)) ? 0 : contador; // Si ya llegamos al final
                 //Devuelvase al inicio de la cola, si no, siga en donde está
 
-               
+                WaitHandle.WaitAll(banderas_nucleos_controlador);
 
+                /** TODO: if(quantum == 0) asigne otro hilo y reinicie quantum; if (hilo_terminado) saque de la cola **/
                 
                 ++contador;
+                reloj++;
+
+                /** TODO: Actualizaciòn de Interfaz **/
+
+                bandera_controlador_nucleo1.Set();
+                bandera_controlador_nucleo2.Set();
+                
             }
 
             
@@ -124,8 +146,10 @@ namespace Arqui_Simulacion
             int quantum = 0 ;
             int [] instruccion = new int[4];
             bool aciertoCache = false;
+            bool busOcupado = true;
             while (!finPrograma)
             {
+                bandera_controlador_nucleo1.WaitOne();
                 if (Thread.CurrentThread.Name == "Nucleo1")
                 {
                     int dirHilo = hilo_a_ejecutar[0];
@@ -134,6 +158,7 @@ namespace Arqui_Simulacion
                     {
                         registro_nucleo1[i] = PCB[numHilo1, i];
                     }
+                    PC1 = PCB[numHilo1, 32];
                     while (quantum != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
                         int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
@@ -146,10 +171,29 @@ namespace Arqui_Simulacion
                             }
                         }
 
-                        /** Aquí va el fallo de caché **/
+                        
                         if (!aciertoCache)
                         {
-
+                            while (busOcupado)
+                            {
+                                if (Monitor.TryEnter(bus))
+                                {
+                                    try
+                                    {
+                                        /** TODO: Aquí va el fallo de caché **/
+                                        busOcupado = false;
+                                    }
+                                    finally
+                                    {
+                                        Monitor.Exit(bus);
+                                    }
+                                }
+                                else
+                                {
+                                    bandera_nucleo1_controlador.Set();
+                                    bandera_controlador_nucleo1.WaitOne();
+                                }
+                            }
                         }
 
                         int numInstruccion = PC1 % 4;
@@ -160,17 +204,17 @@ namespace Arqui_Simulacion
                         PC1 += 4;
                         ejecutarInstruccion1(ref instruccion, numHilo1);
                         quantum--;
-                    }
-                    if (quantum == 0 && !fin_hilos[numHilo1])
-                    {
-                        for (int i = 0; i < 32; i++)    //guarda el contexto (falta PC)
+                        if (quantum == 0 || !fin_hilos[numHilo1])
                         {
-                            PCB[numHilo1, i] = registro_nucleo1[i];
+                            for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
+                            {
+                                PCB[numHilo1, k] = registro_nucleo1[k];
+                            }
+                            PCB[numHilo1, 32] = PC1;
                         }
-
-                        /** Indicar que núcleo está libre **/
-                    
+                        bandera_nucleo1_controlador.Set();
                     }
+                    
                 }
 
                 
