@@ -44,9 +44,12 @@ namespace Arqui_Simulacion
         private List<int> colaRR; //Simula la cola para el round Robin
         private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
 
-        private int hilo; //Variable que indica si hay un hilo para ejecución
-
         private int numHilos;  //indica cuántos hilos de MIPS (archivos) tiene el programa
+        private int quatum;
+        private int tiempoLecturaEscritura;
+        private int tiempoTransferencia;
+        private bool modoLento;
+
 
         private ArrayList bus;
 
@@ -59,6 +62,10 @@ namespace Arqui_Simulacion
             InitializeComponent();
 
             default_values();
+
+
+            modoLento = false;
+
 
             RAM = new int[2048];
             registro_nucleo1 = new int[32];
@@ -75,12 +82,6 @@ namespace Arqui_Simulacion
             fin_hilos = new bool[6];
 
             bus = new ArrayList(4);
-
-
-          //  Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
-           // control.Start();
-
-
 
 
         }
@@ -109,18 +110,18 @@ namespace Arqui_Simulacion
                 contador = (contador == (colaRR.Count - 1)) ? 0 : contador; // Si ya llegamos al final
                 //Devuelvase al inicio de la cola, si no, siga en donde está
 
-                hilo = contador;
+               
 
                 
                 ++contador;
             }
 
-
+            
         }
 
         public void nucleo()
         {
-            int quantum;
+            int quantum = 0 ;
             int [] instruccion = new int[4];
             bool aciertoCache = false;
             while (!finPrograma)
@@ -178,10 +179,7 @@ namespace Arqui_Simulacion
 
 
 
-        private void edicionToolStripMenuItem_Click(object sender, EventArgs e)
-        {
 
-        }
 
         private void label1_Click(object sender, EventArgs e)
         {
@@ -191,11 +189,13 @@ namespace Arqui_Simulacion
         private void radioButton1_CheckedChanged(object sender, EventArgs e)
         {
             button2.Visible = true;
+            modoLento = true;
         }
 
         private void radioButton2_CheckedChanged(object sender, EventArgs e)
         {
             button2.Visible = false;
+            modoLento = false;
         }
 
 
@@ -203,9 +203,7 @@ namespace Arqui_Simulacion
         {
             int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
             OpenFileDialog archivador = new OpenFileDialog();
-            
-            int[] temporal; //guarda el un array de int's temporal
-            String linea;
+           
             int contador = 0;
             System.IO.StreamReader sr;
 
@@ -219,10 +217,11 @@ namespace Arqui_Simulacion
                 {
                     ++contador;
 
-
-                    colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
+                     colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
                     //En este caso usaremos como id del hilo, la direccion en memoria
                     //donde inicia el hilo
+
+                    mapaContexto.Add(puntero,contador); //<ID del hilo, # de hilo>
 
                    sr = new System.IO.StreamReader(file);
                    cargarRAM(ref sr, ref puntero);
@@ -231,6 +230,7 @@ namespace Arqui_Simulacion
                 }       
                 
             }
+
 
 
             if ((int.Parse(textBox1.Text) != contador) && (contador > 0))
@@ -243,10 +243,6 @@ namespace Arqui_Simulacion
 
             }
 
-            for (int i = 0; i < colaRR.Count; ++i )
-            {
-                MessageBox.Show(""+colaRR[i]);
-            }
         }
 
         private void cargarRAM(ref System.IO.StreamReader sr, ref int puntero)
@@ -283,7 +279,17 @@ namespace Arqui_Simulacion
 
         private void button3_Click(object sender, EventArgs e)
         {
-            PCB = new int[int.Parse(textBox1.Text), 33]; //Iinicializamos el PCB (Process Control Block)
+            numHilos = int.Parse(textBox1.Text);
+            PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
+             
+            quatum = int.Parse(textBox4.Text); 
+
+            tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
+
+            tiempoTransferencia = int.Parse(textBox3.Text); //Este es el valor de m que menciona el enunciado.
+
+             Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
+             control.Start();
 
         }
 
