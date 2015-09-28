@@ -27,6 +27,8 @@ namespace Arqui_Simulacion
 
         private long reloj;
 
+        private bool finPrograma;
+
         private int[,] PCB;
 
         public Form1()
@@ -64,7 +66,13 @@ namespace Arqui_Simulacion
 
         public void nucleo()
         {
-           
+            while (!finPrograma)
+            {
+                if (Thread.CurrentThread.Name == "Nucleo1")
+                {
+
+                }
+            }
         }
 
 
