@@ -14,7 +14,9 @@ namespace Arqui_Simulacion
 {
     public partial class Form1 : Form
     {
+
         private int[] RAM;
+        private bool archivosCargados;
 
         private int[] registro_nucleo1;
         private int[] registro_nucleo2;
@@ -44,11 +46,11 @@ namespace Arqui_Simulacion
         private List<int> colaRR; //Simula la cola para el round Robin
         private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
 
-        private int numHilos;  //indica cuántos hilos de MIPS (archivos) tiene el programa
         private int quatum;
         private int tiempoLecturaEscritura;
         private int tiempoTransferencia;
         private bool modoLento;
+        private int totalHilos;
 
         private WaitHandle[] banderas_nucleos_controlador;
 
@@ -60,16 +62,20 @@ namespace Arqui_Simulacion
 
         private ArrayList bus;
 
+        private Object totem;
+
         public Form1()
         {
-            colaRR = new List<int>(); //Creamos el calendarizador
-            mapaContexto = new Dictionary<int, int>(); //<id del proceso, puntero al contexto>
-
-
             InitializeComponent();
+
+            totem = new Object();
 
             default_values();
 
+            archivosCargados = false; //Se enciende cuando se cargan los archivos.
+
+            colaRR = new List<int>(); //Creamos el calendarizador
+            mapaContexto = new Dictionary<int, int>(); //<id del proceso, puntero al contexto>
 
             modoLento = false;
 
@@ -86,7 +92,7 @@ namespace Arqui_Simulacion
 
             hilo_a_ejecutar = new int[2];
 
-            fin_hilos = new bool[6];
+            
 
             bus = new ArrayList(4);
 
@@ -110,13 +116,19 @@ namespace Arqui_Simulacion
 
             int contador = 0;
 
+            MessageBox.Show("Hola desde el controlador");
+
+            Thread.Sleep(10000);
+
+            MessageBox.Show("Ya voy para afuera!");
+            /**
             Thread nucleo1 = new Thread(new ThreadStart(nucleo));
             nucleo1.Name = "nucleo1";
             nucleo1.Start();
             Thread nucleo2 = new Thread(new ThreadStart(nucleo));
             nucleo2.Name = "nucleo2";
             nucleo2.Start();
-
+            
             reloj = -1;
 
             while(colaRR.Count != 0)
@@ -126,17 +138,27 @@ namespace Arqui_Simulacion
 
                 WaitHandle.WaitAll(banderas_nucleos_controlador);
 
-                /** TODO: if(quantum == 0) asigne otro hilo y reinicie quantum; if (hilo_terminado) saque de la cola **/
+                // TODO: if(quantum == 0) asigne otro hilo y reinicie quantum; if (hilo_terminado) saque de la cola /
                 
                 ++contador;
-                reloj++;
+                ++reloj;
 
-                /** TODO: Actualizaciòn de Interfaz **/
+                // TODO: Actualizaciòn de Interfaz 
 
                 bandera_controlador_nucleo1.Set();
                 bandera_controlador_nucleo2.Set();
                 
             }
+            
+
+            while (true) 
+            {
+                lock (totem)
+                {
+                    ++reloj;
+                }
+            }
+            **/
 
             
         }
@@ -163,7 +185,7 @@ namespace Arqui_Simulacion
                     {
                         int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
                         int i = 0;
-                        while (i < numHilos && !aciertoCache)    //busca el bloque en caché
+                        while (i < totalHilos && !aciertoCache)    //busca el bloque en caché
                         {
                             if (numBloque == bloques_cache_instrucciones_nucleo1[i])
                             {
@@ -204,6 +226,7 @@ namespace Arqui_Simulacion
                         PC1 += 4;
                         ejecutarInstruccion1(ref instruccion, numHilo1);
                         quantum--;
+
                         if (quantum == 0 || !fin_hilos[numHilo1])
                         {
                             for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
@@ -212,6 +235,7 @@ namespace Arqui_Simulacion
                             }
                             PCB[numHilo1, 32] = PC1;
                         }
+
                         bandera_nucleo1_controlador.Set();
                     }
                     
@@ -245,10 +269,9 @@ namespace Arqui_Simulacion
 
         private void button1_Click(object sender, EventArgs e)
         {
-            int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
+            
             OpenFileDialog archivador = new OpenFileDialog();
-           
-            int contador = 0;
+          
             System.IO.StreamReader sr;
 
             archivador.Multiselect = true; //permite seleccionar mas de un archivo
@@ -257,24 +280,50 @@ namespace Arqui_Simulacion
 
             if (archivador.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                foreach(String file in archivador.FileNames)
-                {
-                    ++contador;
-
-                     colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
-                    //En este caso usaremos como id del hilo, la direccion en memoria
-                    //donde inicia el hilo
-
-                    mapaContexto.Add(puntero,contador); //<ID del hilo, # de hilo>
-
-                   sr = new System.IO.StreamReader(file);
-                   cargarRAM(ref sr, ref puntero);
-                   sr.Close();
-
-                }       
-                
+                cargarRAM(ref archivador);
             }
 
+        }
+
+        private void cargarRAM(ref OpenFileDialog archivador )
+        {
+            int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
+            int contador = 0; //Número de hilo lógico [0,1,2,3]
+            String linea;
+            int[] temporal;
+
+            System.IO.StreamReader sr;
+
+            foreach (String file in archivador.FileNames)
+            {
+                ++contador;
+
+                colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
+                //En este caso usaremos como id del hilo, la direccion en memoria
+                //donde inicia el hilo
+
+                mapaContexto.Add(puntero, contador); //<ID del hilo, # lógico de hilo>
+
+                sr = new System.IO.StreamReader(file);
+
+                linea = sr.ReadLine();
+                while ((linea != null) && (linea != ""))
+                {
+
+                    temporal = linea.Split(' ').Select(int.Parse).ToArray();
+
+                    for (int i = 0; i < 4; ++i, ++puntero)
+                    {
+                        RAM[puntero] = temporal[i];
+                    }
+
+                    linea = sr.ReadLine();
+
+                }
+
+                sr.Close();
+
+            }
 
 
             if ((int.Parse(textBox1.Text) != contador) && (contador > 0))
@@ -287,28 +336,7 @@ namespace Arqui_Simulacion
 
             }
 
-        }
-
-        private void cargarRAM(ref System.IO.StreamReader sr, ref int puntero)
-        {
-            String linea;
-            int[] temporal;
-
-
-            linea = sr.ReadLine();
-            while ((linea != null) && (linea != ""))
-            {
-
-                temporal = linea.Split(' ').Select(int.Parse).ToArray();
-
-                for (int i = 0; i < 4; ++i, ++puntero)
-                {
-                    RAM[puntero] = temporal[i];
-                }
-
-                linea = sr.ReadLine();
-                
-            }
+            archivosCargados = true; //Indicamos que ya los archivos se cargaron
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
@@ -321,20 +349,57 @@ namespace Arqui_Simulacion
             }
         }
 
+        /**
+         * Carga todos los datos de la interfaz
+         **/
         private void button3_Click(object sender, EventArgs e)
         {
-            numHilos = int.Parse(textBox1.Text);
-            PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
-             
-            quatum = int.Parse(textBox4.Text); 
+            if (archivosCargados)
+            {
+                 totalHilos = int.Parse(textBox1.Text);
+                PCB = new int[totalHilos, 33]; //Inicializamos el PCB (Process Control Block)
+                fin_hilos = new bool[totalHilos];
 
-            tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
+                quatum = int.Parse(textBox4.Text);
 
-            tiempoTransferencia = int.Parse(textBox3.Text); //Este es el valor de m que menciona el enunciado.
+                tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
 
-             Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
-             control.Start();
+                tiempoTransferencia = int.Parse(textBox3.Text); //Este es el valor de m que menciona el enunciado.
 
+                Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
+                control.Start();
+
+                actualizarInterfaz();
+
+            }
+            else
+            {
+                MessageBox.Show("¡Espera!...\nAún no has cargado suficientes datos.\n"+
+                    "Revisa que los textbox estén llenos y los hilos ya hayan sido cargados a memoria.","Hilos",MessageBoxButtons.OK,MessageBoxIcon.Stop);    
+            }
+
+        }
+
+        private void actualizarInterfaz()
+        {
+
+
+
+
+                    richTextBox1.Text = "hola";
+                    richTextBox1.Invalidate();
+                    richTextBox1.Update();
+                    Application.DoEvents();
+                
+                Thread.Sleep(5000);
+
+
+                richTextBox1.Text = "Voy saliendo";
+                
+
+            
+    
+            
         }
 
         private void ejecutarInstruccion1(ref int[] ins, int numHilo)
