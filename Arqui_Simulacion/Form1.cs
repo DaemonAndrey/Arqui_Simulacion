@@ -149,7 +149,7 @@ namespace Arqui_Simulacion
                 bandera_controlador_nucleo2.Set();
                 
             }
-            
+            **/
 
             while (true) 
             {
@@ -158,7 +158,7 @@ namespace Arqui_Simulacion
                     ++reloj;
                 }
             }
-            **/
+            
 
             
         }
@@ -383,22 +383,14 @@ namespace Arqui_Simulacion
         private void actualizarInterfaz()
         {
 
+            while(true)
+            {
+                richTextBox1.AppendText("El reloj es "+reloj+"\n");
 
-
-
-                    richTextBox1.Text = "hola";
-                    richTextBox1.Invalidate();
-                    richTextBox1.Update();
-                    Application.DoEvents();
-                
-                Thread.Sleep(5000);
-
-
-                richTextBox1.Text = "Voy saliendo";
-                
-
-            
-    
+                Application.DoEvents();
+                Thread.Sleep(2000);
+              
+            } 
             
         }
 
