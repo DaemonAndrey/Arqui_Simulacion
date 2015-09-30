@@ -47,10 +47,11 @@ namespace Arqui_Simulacion
         private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
 
         private int quatum;
+        private int quatumTempo;
         private int tiempoLecturaEscritura;
         private int tiempoTransferencia;
         private bool modoLento;
-        private int totalHilos;
+        private int numHilos;
 
         private WaitHandle[] banderas_nucleos_controlador;
 
@@ -62,17 +63,17 @@ namespace Arqui_Simulacion
 
         private ArrayList bus;
 
-        private Object totem;
+        private string textoInterfaz;
 
         public Form1()
         {
             InitializeComponent();
 
-            totem = new Object();
 
             default_values();
 
             archivosCargados = false; //Se enciende cuando se cargan los archivos.
+            textoInterfaz = "";
 
             colaRR = new List<int>(); //Creamos el calendarizador
             mapaContexto = new Dictionary<int, int>(); //<id del proceso, puntero al contexto>
@@ -113,51 +114,79 @@ namespace Arqui_Simulacion
 
         public void controlador()
         {
-
             int contador = 0;
-
-            MessageBox.Show("Hola desde el controlador");
-
-            Thread.Sleep(10000);
-
-            MessageBox.Show("Ya voy para afuera!");
-            /**
+           
             Thread nucleo1 = new Thread(new ThreadStart(nucleo));
-            nucleo1.Name = "nucleo1";
             nucleo1.Start();
             Thread nucleo2 = new Thread(new ThreadStart(nucleo));
-            nucleo2.Name = "nucleo2";
             nucleo2.Start();
             
             reloj = -1;
 
+            hilo_a_ejecutar[0] = contador;
+            hilo_a_ejecutar[1] = ++contador;
+
             while(colaRR.Count != 0)
             {
-                contador = (contador == (colaRR.Count - 1)) ? 0 : contador; // Si ya llegamos al final
-                //Devuelvase al inicio de la cola, si no, siga en donde está
+                /**
+                  if(fin_hilos[(contador - 1)] )
+                  {
+                    colaRR.Remove((contador-1));
+                    finQuantum1 = true;
+                  }
+               
+                  if(fin_hilos[contador])
+                  {
+                    colaRR.Remove(contador);
+                    finQuatum2 = true;
+                  }
+                  
+                 if(finQuantum1)
+                 {
+                    
+                   contador = (contador == (colaRR.Count - 1)) ? 0 : ++contador; // Si ya llegamos al final
+                    //Devuelvase al inicio de la cola, si no, sume 1
+                 * 
+                    hilo_a_ejecutar[0] = contador;
+                 
+                 }
+                 
+                  if(finQuantum2)
+                 {
+                    
+                    contador = (contador == (colaRR.Count - 1)) ? 0 : ++contador; // Si ya llegamos al final
+                    //Devuelvase al inicio de la cola, si no, sume 1
+                  
+                    hilo_a_ejecutar[1] = contador;
+                 
+                 }
+                 
+               
+
+                **/
+
+
 
                 WaitHandle.WaitAll(banderas_nucleos_controlador);
 
-                // TODO: if(quantum == 0) asigne otro hilo y reinicie quantum; if (hilo_terminado) saque de la cola /
                 
-                ++contador;
+
+
                 ++reloj;
 
-                // TODO: Actualizaciòn de Interfaz 
+                textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
+                    + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
+                    + hilo_a_ejecutar[1];
+
+
 
                 bandera_controlador_nucleo1.Set();
                 bandera_controlador_nucleo2.Set();
                 
             }
-            **/
+            
 
-            while (true) 
-            {
-                lock (totem)
-                {
-                    ++reloj;
-                }
-            }
+
             
 
             
@@ -185,7 +214,7 @@ namespace Arqui_Simulacion
                     {
                         int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
                         int i = 0;
-                        while (i < totalHilos && !aciertoCache)    //busca el bloque en caché
+                        while (i < numHilos && !aciertoCache)    //busca el bloque en caché
                         {
                             if (numBloque == bloques_cache_instrucciones_nucleo1[i])
                             {
@@ -354,11 +383,11 @@ namespace Arqui_Simulacion
          **/
         private void button3_Click(object sender, EventArgs e)
         {
-            if (archivosCargados)
+            if (archivosCargados && (textBox1.Text != "") && (textBox2.Text != "") && (textBox3.Text != "") && (textBox4.Text != ""))
             {
-                 totalHilos = int.Parse(textBox1.Text);
-                PCB = new int[totalHilos, 33]; //Inicializamos el PCB (Process Control Block)
-                fin_hilos = new bool[totalHilos];
+                 numHilos = int.Parse(textBox1.Text);
+                PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
+                fin_hilos = new bool[numHilos];
 
                 quatum = int.Parse(textBox4.Text);
 
@@ -385,10 +414,9 @@ namespace Arqui_Simulacion
 
             while(true)
             {
-                richTextBox1.AppendText("El reloj es "+reloj+"\n");
+                richTextBox1.AppendText(textoInterfaz);
 
                 Application.DoEvents();
-                Thread.Sleep(2000);
               
             } 
             
