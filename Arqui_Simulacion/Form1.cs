@@ -27,6 +27,7 @@ namespace Arqui_Simulacion
         private int[,] cache_instrucciones_nucleo2;
 
         private int[] bloques_cache_instrucciones_nucleo1; //indica el número de bloques que están en caché
+        private int[] bloques_cache_instrucciones_nucleo2;
 
         private int[] hilo_a_ejecutar; //indica cual hilo va a ejecutar cada núcleo
 
@@ -84,6 +85,9 @@ namespace Arqui_Simulacion
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
 
+            bloques_cache_instrucciones_nucleo1 = new int[8];
+            bloques_cache_instrucciones_nucleo2 = new int[8];
+
             hilo_a_ejecutar = new int[2];
 
             fin_hilos = new bool[6];
@@ -112,10 +116,10 @@ namespace Arqui_Simulacion
 
             int contador = 0;
 
-            Thread nucleo1 = new Thread(new ThreadStart(nucleo));
+            Thread nucleo1 = new Thread(new ThreadStart(nucleo_1));
             nucleo1.Name = "nucleo1";
             nucleo1.Start();
-            Thread nucleo2 = new Thread(new ThreadStart(nucleo));
+            Thread nucleo2 = new Thread(new ThreadStart(nucleo_2));
             nucleo2.Name = "nucleo2";
             nucleo2.Start();
 
@@ -143,7 +147,7 @@ namespace Arqui_Simulacion
             
         }
 
-        public void nucleo()
+        public void nucleo_1()
         {
             int quantum = 0 ;
             int [] instruccion = new int[4];
@@ -249,7 +253,110 @@ namespace Arqui_Simulacion
         }
 
 
+        public void nucleo_2()
+        {
+            int quantum = 0;
+            int[] instruccion = new int[4];
+            bool aciertoCache = false;
+            bool busOcupado = true;
+            while (!finPrograma)
+            {
+                bandera_controlador_nucleo2.WaitOne();
 
+                int dirHilo = hilo_a_ejecutar[1];
+                int numHilo2 = mapaContexto[hilo_a_ejecutar[1]];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
+                for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
+                {
+                    registro_nucleo2[i] = PCB[numHilo2, i];
+                }
+                PC2 = PCB[numHilo2, 32];
+                while (quantum != 0 && !fin_hilos[numHilo2])    //mientras tenga quantum y no haya terminado el hilo
+                {
+                    bandera_controlador_nucleo2.WaitOne();
+                    int numBloque = PC2 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
+                    int i = 0;
+                    while (i < numHilos && !aciertoCache)    //busca el bloque en caché
+                    {
+                        if (numBloque == bloques_cache_instrucciones_nucleo2[i])
+                        {
+                            aciertoCache = true;
+                        }
+                    }
+
+
+                    if (!aciertoCache)
+                    {
+                        while (busOcupado)
+                        {
+                            if (Monitor.TryEnter(bus))
+                            {
+                                try
+                                {
+                                    /** TODO: Aquí va el fallo de caché **/
+                                    int offset = 0;
+                                    for (int n = 0; n < 4; n++)
+                                    {
+                                        for (int m = 0; m < 4; m++)
+                                        {
+                                            bus[m] = RAM[numBloque * 16 + m + offset];
+                                        }
+
+                                        for (int m = 0; m < 4; m++)
+                                        {
+                                            cache_instrucciones_nucleo2[numBloque % 8, m + offset] = (int)bus[m];
+                                        }
+
+                                        offset += 4;
+                                    }
+
+                                    bloques_cache_instrucciones_nucleo2[numBloque % 8] = numBloque;
+
+                                    for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
+                                    {
+                                        bandera_nucleo2_controlador.Set();
+                                        bandera_controlador_nucleo2.WaitOne();
+                                    }
+
+
+                                    busOcupado = false;
+                                }
+                                finally
+                                {
+                                    Monitor.Exit(bus);
+                                }
+                            }
+                            else
+                            {
+                                bandera_nucleo2_controlador.Set();
+                                bandera_controlador_nucleo2.WaitOne();
+                            }
+                        }
+                    }
+
+                    int numInstruccion = PC2 % 4;
+                    for (int j = numInstruccion; j < numInstruccion + 4; j++)
+                    {
+                        instruccion[j] = cache_instrucciones_nucleo2[i, j];
+                    }
+                    PC2 += 4;
+                    ejecutarInstruccion2(ref instruccion, numHilo2);
+                    quantum--;
+                    if (quantum == 0 || !fin_hilos[numHilo2])
+                    {
+                        for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
+                        {
+                            PCB[numHilo2, k] = registro_nucleo2[k];
+                        }
+                        PCB[numHilo2, 32] = PC2;
+                    }
+                    bandera_nucleo2_controlador.Set();
+                }
+
+
+
+
+            }
+        }
 
 
         private void label1_Click(object sender, EventArgs e)
