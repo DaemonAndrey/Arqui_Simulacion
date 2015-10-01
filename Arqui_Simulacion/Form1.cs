@@ -92,12 +92,14 @@ namespace Arqui_Simulacion
 
             banderas_nucleos_controlador = new WaitHandle[2];
 
-            bandera_nucleo1_controlador = new AutoResetEvent(false);
-            bandera_nucleo2_controlador = new AutoResetEvent(false);
+            bandera_nucleo1_controlador = new AutoResetEvent(true);
+            bandera_nucleo2_controlador = new AutoResetEvent(true);
 
             banderas_nucleos_controlador[0] = bandera_nucleo1_controlador;
             banderas_nucleos_controlador[1] = bandera_nucleo2_controlador;
 
+            bandera_controlador_nucleo1 = new AutoResetEvent(false);
+            bandera_controlador_nucleo2 = new AutoResetEvent(false);
         }
 
         private void default_values()
@@ -150,8 +152,7 @@ namespace Arqui_Simulacion
             while (!finPrograma)
             {
                 bandera_controlador_nucleo1.WaitOne();
-                if (Thread.CurrentThread.Name == "Nucleo1")
-                {
+                
                     int dirHilo = hilo_a_ejecutar[0];
                     int numHilo1 = mapaContexto[hilo_a_ejecutar[0]];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
                     for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
@@ -161,6 +162,7 @@ namespace Arqui_Simulacion
                     PC1 = PCB[numHilo1, 32];
                     while (quantum != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
+                        bandera_controlador_nucleo1.WaitOne();
                         int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
                         int i = 0;
                         while (i < numHilos && !aciertoCache)    //busca el bloque en caché
@@ -181,6 +183,31 @@ namespace Arqui_Simulacion
                                     try
                                     {
                                         /** TODO: Aquí va el fallo de caché **/
+                                        int offset = 0;
+                                        for (int n = 0; n < 4; n++)
+                                        {
+                                            for (int m = 0; m < 4; m++)
+                                            {
+                                                bus[m] = RAM[numBloque * 16 + m + offset];
+                                            }
+
+                                            for (int m = 0; m < 4; m++)
+                                            {
+                                                cache_instrucciones_nucleo1[numBloque % 8, m + offset] = (int) bus[m];
+                                            }
+
+                                            offset += 4;
+                                        }
+
+                                        bloques_cache_instrucciones_nucleo1[numBloque % 8] = numBloque;
+
+                                        for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
+                                        {
+                                            bandera_nucleo1_controlador.Set();
+                                            bandera_controlador_nucleo1.WaitOne();
+                                        }
+
+                                        
                                         busOcupado = false;
                                     }
                                     finally
@@ -215,7 +242,7 @@ namespace Arqui_Simulacion
                         bandera_nucleo1_controlador.Set();
                     }
                     
-                }
+                
 
                 
             }
