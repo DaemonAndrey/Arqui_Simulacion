@@ -101,6 +101,10 @@ namespace Arqui_Simulacion
             
 
             bus = new ArrayList(4);
+            bus.Add(0);
+            bus.Add(1);
+            bus.Add(2);
+            bus.Add(3);
 
             banderas_nucleos_controlador = new WaitHandle[2];
 
@@ -122,6 +126,11 @@ namespace Arqui_Simulacion
             finPrograma = false;
             nucleo1Activo = true;
             nucleo2Activo = true;
+            for (int i = 0; i < 8; i++)
+            {
+                bloques_cache_instrucciones_nucleo1[i] = -1;
+                bloques_cache_instrucciones_nucleo2[i] = -1;
+            }
         }
 
         private int getIndice(int otroIndice, int inicio)
@@ -177,7 +186,7 @@ namespace Arqui_Simulacion
             while(!finPrograma)
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
-                 if(quantum1 == 0)
+                 if(quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]])
                  {
                      hilo1 = getIndice(hilo_a_ejecutar[1], contador);
                      if (hilo1 == contador)
@@ -199,7 +208,7 @@ namespace Arqui_Simulacion
                     
                  }
                  
-                 if(quantum2 == 0)
+                 if(quantum2 == 0 || fin_hilos[hilo_a_ejecutar[1]])
                  {
                      hilo2 = getIndice(hilo_a_ejecutar[0], contador);
                      if (hilo2 == contador)
@@ -261,6 +270,7 @@ namespace Arqui_Simulacion
                         registro_nucleo1[i] = PCB[numHilo1, i];
                     }
                     PC1 = PCB[numHilo1, 32];
+                    MessageBox.Show("cargar contexto");
                     while (quantum1 != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
                         
@@ -272,11 +282,13 @@ namespace Arqui_Simulacion
                             {
                                 aciertoCache = true;
                             }
+                            i++;
                         }
-
+                        MessageBox.Show("buscó en caché");
                         
                         if (!aciertoCache)
                         {
+                            MessageBox.Show("falló caché");
                             while (!busOcupado)
                             {
                                 if (Monitor.TryEnter(bus))
@@ -284,11 +296,12 @@ namespace Arqui_Simulacion
                                     try
                                     {
                                         /** TODO: Aquí va el fallo de caché **/
+                                        MessageBox.Show("fallo caché");
                                         busOcupado = true;
                                         int offset = 0;
                                         for (int n = 0; n < 4; n++)
                                         {
-                                            for (int m = 0; m < 4; m++)
+                                            for (int m = 0; m < bus.Count; m++)
                                             {
                                                 bus[m] = RAM[numBloque * 16 + m + offset];
                                             }
@@ -300,7 +313,7 @@ namespace Arqui_Simulacion
 
                                             offset += 4;
                                         }
-
+                                        MessageBox.Show("cargó en caché");
                                         bloques_cache_instrucciones_nucleo1[numBloque % 8] = numBloque;
 
                                         for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
@@ -315,33 +328,39 @@ namespace Arqui_Simulacion
                                     finally
                                     {
                                         Monitor.Exit(bus);
+                                        MessageBox.Show("dejó bus");
                                     }
                                 }
                                 else
                                 {
+                                    MessageBox.Show("no consiguió bus");
                                     bandera_nucleo1_controlador.Set();
                                     bandera_controlador_nucleo1.WaitOne();
                                 }
                             }
                             busOcupado = false;
                         }
+                        aciertoCache = false;
 
                         int numInstruccion = PC1 % 4;
                         for (int j = numInstruccion; j < numInstruccion + 4; j++)
                         {
-                            instruccion[j] = cache_instrucciones_nucleo1[i, j];
+                            instruccion[j] = cache_instrucciones_nucleo1[numBloque % 8, j];
                         }
+                        MessageBox.Show("copió instrucción");
                         PC1 += 4;
                         ejecutarInstruccion1(ref instruccion, numHilo1);
+                        MessageBox.Show("ejecutó instrucción");
                         quantum1--;
-
-                        if (quantum1 == 0 || !fin_hilos[numHilo1])
+                        MessageBox.Show("restó quantum");
+                        if (quantum1 == 0 && !fin_hilos[numHilo1])
                         {
                             for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
                             {
                                 PCB[numHilo1, k] = registro_nucleo1[k];
                             }
                             PCB[numHilo1, 32] = PC1;
+                            MessageBox.Show("guardó contexto");
                         }
 
                         bandera_nucleo1_controlador.Set();
@@ -389,6 +408,7 @@ namespace Arqui_Simulacion
                         {
                             aciertoCache = true;
                         }
+                        i++;
                     }
 
 
@@ -442,11 +462,12 @@ namespace Arqui_Simulacion
                         }
                         busOcupado = false;
                     }
+                    aciertoCache = false;
 
                     int numInstruccion = PC2 % 4;
                     for (int j = numInstruccion; j < numInstruccion + 4; j++)
                     {
-                        instruccion[j] = cache_instrucciones_nucleo2[i, j];
+                        instruccion[j] = cache_instrucciones_nucleo2[numBloque % 8, j];
                     }
                     PC2 += 4;
                     ejecutarInstruccion2(ref instruccion, numHilo2);
