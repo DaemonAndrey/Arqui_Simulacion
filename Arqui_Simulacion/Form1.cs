@@ -194,15 +194,18 @@ namespace Arqui_Simulacion
                          if (hilo1 == hilo_a_ejecutar[1])
                          {
                              nucleo1Activo = false;
+                             MessageBox.Show("Nucleo 1 desactivado");
                          }
                          else
                          {
                              finPrograma = true;
+                             MessageBox.Show("Fin de programa");
                          }
                      }
                      else
                      {
                          hilo_a_ejecutar[0] = hilo1;
+                         //MessageBox.Show("Asignado a nucleo 1 el hilo " + hilo_a_ejecutar[0]);
                          quantum1 = quantum;
                      }
                     
@@ -216,15 +219,18 @@ namespace Arqui_Simulacion
                          if (hilo2 == hilo_a_ejecutar[0])
                          {
                              nucleo2Activo = false;
+                             MessageBox.Show("Nucleo 2 desactivado");
                          }
                          else
                          {
                              finPrograma = true;
+                             MessageBox.Show("Fin Programa");
                          }
                      }
                      else
                      {
                          hilo_a_ejecutar[1] = getIndice(hilo_a_ejecutar[0], contador);
+                         //MessageBox.Show("Asignado a nucleo 2 el hilo " + hilo_a_ejecutar[1]);
                          quantum2 = quantum;
                      }
                      
@@ -233,7 +239,7 @@ namespace Arqui_Simulacion
 
 
 
-                 //MessageBox.Show(" " + reloj);
+                //MessageBox.Show(" " + reloj);
                 textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
                     + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
                     + hilo_a_ejecutar[1]+"\n";
@@ -290,12 +296,14 @@ namespace Arqui_Simulacion
                     {
                         
                         int numBloque = (int) Math.Floor((double)PC1 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
+                        //MessageBox.Show("Nucleo 1 bloque " + numBloque);
                         int i = 0;
                         while (i < 8 && !aciertoCache)    //busca el bloque en caché
                         {
                             if (numBloque == bloques_cache_instrucciones_nucleo1[i])
                             {
                                 aciertoCache = true;
+                                //MessageBox.Show("Bloque " + numBloque + " en cache");
                             }
                             i++;
                         }
@@ -362,7 +370,7 @@ namespace Arqui_Simulacion
                         {
                             instruccion[j % 4] = cache_instrucciones_nucleo1[numBloque % 8, j];
                         }
-
+                        //MessageBox.Show("Nucleo 1 instruccion = " + instruccion[0] + " " + instruccion[1] + " " + instruccion[2] + " " + instruccion[3]);
                         PC1 += 4;
                         ejecutarInstruccion1(ref instruccion, numHilo1);
 
@@ -378,11 +386,14 @@ namespace Arqui_Simulacion
 
                         }
 
-                        bandera_nucleo1_controlador.Set();
-                        bandera_controlador_nucleo1.WaitOne();
+                        if (quantum1 != 0 && !fin_hilos[numHilo1])
+                        {
+                            bandera_nucleo1_controlador.Set();
+                            bandera_controlador_nucleo1.WaitOne();
+                        }
                     }
-                    
-                
+
+                    bandera_nucleo1_controlador.Set();
 
                 
             }
@@ -416,12 +427,14 @@ namespace Arqui_Simulacion
                 {
 
                     int numBloque = (int)Math.Floor((double)PC2 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
+                    //MessageBox.Show("Nucleo 2 bloque " + numBloque);
                     int i = 0;
                     while (i < 8 && !aciertoCache)    //busca el bloque en caché
                     {
                         if (numBloque == bloques_cache_instrucciones_nucleo2[i])
                         {
                             aciertoCache = true;
+                            //MessageBox.Show("Bloque " + numBloque + " en cache");
                         }
                         i++;
                     }
@@ -486,6 +499,7 @@ namespace Arqui_Simulacion
                     {
                         instruccion[j % 4] = cache_instrucciones_nucleo2[numBloque % 8, j];
                     }
+                    //MessageBox.Show("Nucleo 2 instruccion = " + instruccion[0] + " " + instruccion[1] + " " + instruccion[2] + " " + instruccion[3]);
                     PC2 += 4;
                     ejecutarInstruccion2(ref instruccion, numHilo2);
                     quantum2--;
@@ -497,11 +511,15 @@ namespace Arqui_Simulacion
                         }
                         PCB[numHilo2, 32] = PC2;
                     }
-                    bandera_nucleo2_controlador.Set();
-                    bandera_controlador_nucleo2.WaitOne();
+
+                    if (quantum2 != 0 && !fin_hilos[numHilo2])
+                    {
+                        bandera_nucleo2_controlador.Set();
+                        bandera_controlador_nucleo2.WaitOne();
+                    }
                 }
 
-
+                bandera_nucleo2_controlador.Set();
 
 
             }
@@ -698,7 +716,7 @@ namespace Arqui_Simulacion
                     if (registro_nucleo1[ins[1]] == 0)
                     {
                         PC1 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + ins[3]);
+                        //MessageBox.Show("PC1 = " + PC1);
                     }
                     break;
 
@@ -706,7 +724,7 @@ namespace Arqui_Simulacion
                     if (registro_nucleo1[ins[1]] != 0)
                     {
                         PC1 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + ins[3]);
+                        //MessageBox.Show("PC1 = " + PC1);
                     }
                     break;
 
@@ -761,7 +779,7 @@ namespace Arqui_Simulacion
                     if (registro_nucleo2[ins[1]] == 0)
                     {
                         PC2 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + ins[3]);
+                        //MessageBox.Show("PC2 = " + PC2);
                     }
                     break;
 
@@ -769,19 +787,20 @@ namespace Arqui_Simulacion
                     if (registro_nucleo2[ins[1]] != 0)
                     {
                         PC2 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + ins[3]);
+                        //MessageBox.Show("PC2 = " + PC2);
                     }
                     break;
 
                 case 3: //JAL
                     registro_nucleo2[31] = PC2;
                     PC2 += ins[3];
-                    //MessageBox.Show("PC1 = " + PC1 + " + " + ins[3]);
+                    MessageBox.Show("Reg 31 = " + registro_nucleo2[31]);
+                    MessageBox.Show("PC2 = " + PC2);
                     break;
 
                 case 2: //JR
                     PC2 = registro_nucleo1[ins[1]];
-                    //MessageBox.Show("PC1 = Reg " + ins[1]);
+                    //MessageBox.Show("PC2 = Reg " + ins[1]);
                     break;
 
                 case 63: //FIN
