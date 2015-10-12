@@ -65,20 +65,28 @@ namespace Arqui_Simulacion
         private AutoResetEvent bandera_controlador_nucleo1;
         private AutoResetEvent bandera_controlador_nucleo2;
 
+        private AutoResetEvent bandera_controlador_impresor;
+
+        private AutoResetEvent bandera_agregar_registros;
+
         private ArrayList bus;
 
+        private Queue<int> robin;
+
         private string textoInterfaz;
+
+        private string textoFinal;
 
         public Form1()
         {
             InitializeComponent();
 
 
-
-
-            archivosCargados = false; //Se enciende cuando se cargan los archivos.
             textoInterfaz = "";
 
+            textoFinal = "";
+
+            robin = new Queue<int>();
 
             modoLento = false;
 
@@ -101,10 +109,6 @@ namespace Arqui_Simulacion
             
 
             bus = new ArrayList(4);
-            bus.Add(0);
-            bus.Add(1);
-            bus.Add(2);
-            bus.Add(3);
 
             banderas_nucleos_controlador = new WaitHandle[2];
 
@@ -117,6 +121,10 @@ namespace Arqui_Simulacion
             bandera_controlador_nucleo1 = new AutoResetEvent(false);
             bandera_controlador_nucleo2 = new AutoResetEvent(false);
 
+            bandera_controlador_impresor = new AutoResetEvent(false);
+
+            bandera_agregar_registros = new AutoResetEvent(true);
+
             default_values();
         }
 
@@ -126,6 +134,12 @@ namespace Arqui_Simulacion
             finPrograma = false;
             nucleo1Activo = true;
             nucleo2Activo = true;
+
+            bus.Add(0);
+            bus.Add(1);
+            bus.Add(2);
+            bus.Add(3);
+
             for (int i = 0; i < 8; i++)
             {
                 bloques_cache_instrucciones_nucleo1[i] = -1;
@@ -133,35 +147,17 @@ namespace Arqui_Simulacion
             }
         }
 
-        private int getIndice(int otroIndice, int inicio)
-        {
-            bool salir = false;
-            int indice = (inicio + 1);
-            int resultado = inicio;
-            
-            while(!salir && (indice != inicio))
-            {
 
-                if (indice == fin_hilos.Length)
-                {
-                    indice = 0;
-                }
-
-                if (!fin_hilos[indice] && indice != otroIndice)
-                {
-                    salir = true;
-                    resultado = indice;
-                }
-
-                ++indice;
-            }
-
-            return resultado;
-        }
 
         public void controlador()
         {
 
+            for (int i = 0; i < numHilos; ++i )
+            {
+                robin.Enqueue(i);
+            }
+
+            bool imprimir = false;
 
             Thread nucleo1 = new Thread(new ThreadStart(nucleo_1));
             nucleo1.Name = "nucleo1";
@@ -172,164 +168,203 @@ namespace Arqui_Simulacion
             
             reloj = 0;
 
-            int contador = 0;
-            int hilo1;
-            int hilo2;
-
-            hilo_a_ejecutar[0] = contador;
-            hilo_a_ejecutar[1] = ++contador;
-            quantum1 = quantum;
-            quantum2 = quantum;
+            quantum1 = 0;
+            quantum2 = 0;
 
             
 
             while(!finPrograma)
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
-                 if(quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]])
+
+                 if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
                  {
-                     hilo1 = getIndice(hilo_a_ejecutar[1], contador);
-                     if (hilo1 == contador)
+                     
+                     if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
                      {
-                         if (hilo1 == hilo_a_ejecutar[1])
-                         {
-                             nucleo1Activo = false;
-                         }
-                         else
-                         {
-                             finPrograma = true;
-                         }
-                     }
-                     else
-                     {
-                         hilo_a_ejecutar[0] = hilo1;
+                         hilo_a_ejecutar[0] = robin.Dequeue();//getIndice(hilo_a_ejecutar[1], contador);
+
                          quantum1 = quantum;
+                         imprimir = true;
+
+                         //MessageBox.Show("1: "+hilo_a_ejecutar[0]);
+                     }
+                     else 
+                     {
+                         nucleo1Activo = false;
+                         imprimir = true;
+
+
+                         if (!nucleo2Activo)
+                         {
+                             finPrograma = true; //Si ya los dos núcleos están inactivos, terminó la simulación
+                         } 
                      }
                     
+                     
                  }
                  
-                 if(quantum2 == 0 || fin_hilos[hilo_a_ejecutar[1]])
+                 if((quantum2 == 0 || fin_hilos[hilo_a_ejecutar[1]]) && nucleo2Activo)
                  {
-                     hilo2 = getIndice(hilo_a_ejecutar[0], contador);
-                     if (hilo2 == contador)
+                     //MessageBox.Show("Hola 2");
+                     if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
                      {
-                         if (hilo2 == hilo_a_ejecutar[0])
-                         {
-                             nucleo2Activo = false;
-                         }
-                         else
-                         {
-                             finPrograma = true;
-                         }
+                         hilo_a_ejecutar[1] = robin.Dequeue();//getIndice(hilo_a_ejecutar[1], contador);
+                         //MessageBox.Show("2: " + hilo_a_ejecutar[1]);
+                         quantum2 = quantum;
+
+                         imprimir = true;
                      }
                      else
                      {
-                         hilo_a_ejecutar[1] = getIndice(hilo_a_ejecutar[0], contador);
-                         quantum2 = quantum;
-                     }
+                         nucleo2Activo = false;
+                         imprimir = true;
                      
+
+                         if (!nucleo1Activo)
+                         {
+                             finPrograma = true; //Si ya los dos núcleos están inactivos, terminó la simulación                             
+                         } 
+                     }
+
+
+
                  }
 
 
-
-
-                 //MessageBox.Show(" " + reloj);
-                textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
-                    + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
-                    + hilo_a_ejecutar[1]+"\n";
-
-                textoInterfaz += "Los registros del núcleo 1 contienen: \n";
-
-                for (int i = 0; i < 32; ++i )
+                if(imprimir)
                 {
-                    textoInterfaz += registro_nucleo1[i] + ", ";
-                }
+                                         //MessageBox.Show(" " + reloj);
+                    textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
+                        + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
+                        + hilo_a_ejecutar[1]+"\n";
 
-                textoInterfaz += "\n Los registros del núcleo 2 contienen: \n";
-
-                for (int i = 0; i < 32; ++i)
-                {
-                    textoInterfaz += registro_nucleo2[i] + ", ";
-                }
-                textoInterfaz += "\n";
+                    textoInterfaz += "Los registros del núcleo 1 contienen: \n";
 
                 
+                    for (int i = 0; i < 32; ++i )
+                    {
+                        textoInterfaz += registro_nucleo1[i] + ", ";
+                    }
+
+                    textoInterfaz += "\n Los registros del núcleo 2 contienen: \n";
+
+                    for (int i = 0; i < 32; ++i)
+                    {
+                        textoInterfaz += registro_nucleo2[i] + ", ";
+                    }
+                
+                    textoInterfaz += "\n" ;
+
+                    bandera_controlador_impresor.Set(); // Habilitamos al hilo principal para que imprima
+
+                    imprimir = false;
+
+                }
+
 
                 ++reloj;
 
+                /**
+                if(nucleo1Activo)
+                {
+                    bandera_controlador_nucleo1.Set();
+                }
 
-                bandera_controlador_nucleo1.Set();
-                bandera_controlador_nucleo2.Set();
+                if (nucleo2Activo)
+                {
+                    bandera_controlador_nucleo2.Set();
+                }
+                **/
+
+                if(!finPrograma)
+                {
+                    bandera_controlador_nucleo1.Set();
+                    bandera_controlador_nucleo2.Set();
+                }
+                else
+                {
+                    bandera_controlador_impresor.Set();
+                }
+
                 
             }
-            
 
 
-            
+
+           
+
+
 
             
         }
 
         public void nucleo_1()
         {
+
+            ArrayList bloques_cargados = new ArrayList();
+
+            for (int i = 0; i < 8; ++i )
+            {
+                bloques_cargados.Add(-1);
+            }
+
+            int numInstruccion;
             int [] instruccion = new int[4];
-            bool aciertoCache = false;
             bool busOcupado = false;
+            int numHilo1;
+            int numBloque;
+            int offset = 0;
+
+
+            bandera_controlador_nucleo1.WaitOne();
             while (nucleo1Activo)
             {
-                bandera_controlador_nucleo1.WaitOne();
-                int numHilo1 = hilo_a_ejecutar[0];
-
-                    for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
+                //bandera_controlador_nucleo1.WaitOne();
+                numHilo1 = hilo_a_ejecutar[0];
+  
+                    for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
                     {
+                        
                         registro_nucleo1[i] = PCB[numHilo1, i];
                     }
+
                     PC1 = PCB[numHilo1, 32];
 
-                    while (quantum1 != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
+                    while ( (quantum1 != 0) && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
-                        
-                        int numBloque = (int) Math.Floor((double)PC1 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
-                        int i = 0;
-                        while (i < 8 && !aciertoCache)    //busca el bloque en caché
-                        {
-                            if (numBloque == bloques_cache_instrucciones_nucleo1[i])
-                            {
-                                aciertoCache = true;
-                            }
-                            i++;
-                        }
+                        numBloque = (int) Math.Floor((double)PC1 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
 
-                        
-                        if (!aciertoCache)
-                        {
 
+                        if(!bloques_cargados.Contains(numBloque))
+                        {
                             while (!busOcupado)
                             {
                                 if (Monitor.TryEnter(bus))
                                 {
                                     try
                                     {
-                                        /** TODO: Aquí va el fallo de caché **/
-                                        //MessageBox.Show("Nucleo 1 Fallo Cache");
+                                        /** fallo de caché **/
+
                                         busOcupado = true;
-                                        int offset = 0;
-                                        for (int n = 0; n < 4; n++)
+                                        offset = 0;
+                                        for (int n = 0; n < 4; ++n)
                                         {
-                                            for (int m = 0; m < bus.Count; m++)
+                                            for (int m = 0; m < bus.Count; ++m)
                                             {
                                                 bus[m] = RAM[numBloque * 16 + m + offset];
                                             }
 
                                             for (int m = 0; m < 4; m++)
                                             {
-                                                cache_instrucciones_nucleo1[numBloque % 8, m + offset] = (int) bus[m];
+                                                cache_instrucciones_nucleo1[numBloque % 8, m + offset] = (int)bus[m];
                                             }
 
                                             offset += 4;
                                         }
-  
-                                        bloques_cache_instrucciones_nucleo1[numBloque % 8] = numBloque;
+
+                                        //bloques_cache_instrucciones_nucleo1[numBloque % 8] = numBloque;
+                                        bloques_cargados[numBloque % 8] = numBloque;
 
                                         for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
                                         {
@@ -337,8 +372,8 @@ namespace Arqui_Simulacion
                                             bandera_controlador_nucleo1.WaitOne();
                                         }
 
-                                        
-                                        
+
+
                                     }
                                     finally
                                     {
@@ -355,10 +390,10 @@ namespace Arqui_Simulacion
                             }
                             busOcupado = false;
                         }
-                        aciertoCache = false;
+                        
 
-                        int numInstruccion = PC1 % 16;
-                        for (int j = numInstruccion; j < numInstruccion + 4; j++)
+                        numInstruccion = PC1 % 16;
+                        for (int j = numInstruccion; j < numInstruccion + 4; ++j)
                         {
                             instruccion[j % 4] = cache_instrucciones_nucleo1[numBloque % 8, j];
                         }
@@ -370,64 +405,71 @@ namespace Arqui_Simulacion
 
                         if (quantum1 == 0 && !fin_hilos[numHilo1])
                         {
-                            for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
+                            for (int k = 0; k < 32; ++k)    //guarda el contexto (falta PC)
                             {
                                 PCB[numHilo1, k] = registro_nucleo1[k];
                             }
                             PCB[numHilo1, 32] = PC1;
 
+                            robin.Enqueue(numHilo1); //Si el hilo aún no se ha terminado de ejecutar,
+                                                     //lo volvemos a encolar para calendarizarlo
+
                         }
 
-                        bandera_nucleo1_controlador.Set();
-                        bandera_controlador_nucleo1.WaitOne();
                     }
-                    
-                
+
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
 
                 
             }
 
+            
             while (!finPrograma)
             {
                 bandera_nucleo1_controlador.Set();
                 bandera_controlador_nucleo1.WaitOne();
             }
+             
         }
 
 
         public void nucleo_2()
         {
-            
+            ArrayList bloques_cargados = new ArrayList();
+
+            for (int i = 0; i < 8; ++i)
+            {
+                bloques_cargados.Add(-1);
+            }
+
+            int numHilo2;
+            int numInstruccion;
             int[] instruccion = new int[4];
-            bool aciertoCache = false;
+            int numBloque;
+            int offset = 0;
             bool busOcupado = false;
+
+            bandera_controlador_nucleo2.WaitOne();
             while (nucleo2Activo)
             {
-                bandera_controlador_nucleo2.WaitOne();
+//                bandera_controlador_nucleo2.WaitOne();
 
-                int numHilo2 = hilo_a_ejecutar[1];
-                
-                for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
+                numHilo2 = hilo_a_ejecutar[1];
+                //MessageBox.Show("En el nucleo 2: "+hilo_a_ejecutar[1]);
+
+                for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
                 {
                     registro_nucleo2[i] = PCB[numHilo2, i];
                 }
                 PC2 = PCB[numHilo2, 32];
-                while (quantum2 != 0 && !fin_hilos[numHilo2])    //mientras tenga quantum y no haya terminado el hilo
+
+                while ((quantum2 != 0) && !fin_hilos[numHilo2])    //mientras tenga quantum y no haya terminado el hilo
                 {
 
-                    int numBloque = (int)Math.Floor((double)PC2 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
-                    int i = 0;
-                    while (i < 8 && !aciertoCache)    //busca el bloque en caché
-                    {
-                        if (numBloque == bloques_cache_instrucciones_nucleo2[i])
-                        {
-                            aciertoCache = true;
-                        }
-                        i++;
-                    }
+                    numBloque = (int)Math.Floor((double)PC2 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
 
-
-                    if (!aciertoCache)
+                    if(!bloques_cargados.Contains(numBloque))
                     {
                         while (!busOcupado)
                         {
@@ -438,15 +480,15 @@ namespace Arqui_Simulacion
                                     /** TODO: Aquí va el fallo de caché **/
                                     //MessageBox.Show("Nucleo 2 Fallo Cache");
                                     busOcupado = true;
-                                    int offset = 0;
-                                    for (int n = 0; n < 4; n++)
+                                    offset = 0;
+                                    for (int n = 0; n < 4; ++n)
                                     {
-                                        for (int m = 0; m < 4; m++)
+                                        for (int m = 0; m < 4; ++m)
                                         {
                                             bus[m] = RAM[numBloque * 16 + m + offset];
                                         }
 
-                                        for (int m = 0; m < 4; m++)
+                                        for (int m = 0; m < 4; ++m)
                                         {
                                             cache_instrucciones_nucleo2[numBloque % 8, m + offset] = (int)bus[m];
                                         }
@@ -454,7 +496,7 @@ namespace Arqui_Simulacion
                                         offset += 4;
                                     }
 
-                                    bloques_cache_instrucciones_nucleo2[numBloque % 8] = numBloque;
+                                    bloques_cargados[numBloque % 8] = numBloque;
 
                                     for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
                                     {
@@ -463,7 +505,7 @@ namespace Arqui_Simulacion
                                     }
 
 
-                                    
+
                                 }
                                 finally
                                 {
@@ -472,45 +514,52 @@ namespace Arqui_Simulacion
                             }
                             else
                             {
-                                //MessageBox.Show("Nucleo 2 Esperando Bus");
                                 bandera_nucleo2_controlador.Set();
                                 bandera_controlador_nucleo2.WaitOne();
                             }
                         }
                         busOcupado = false;
                     }
-                    aciertoCache = false;
 
-                    int numInstruccion = PC2 % 16;
-                    for (int j = numInstruccion; j < numInstruccion + 4; j++)
+
+                    numInstruccion = PC2 % 16;
+                    for (int j = numInstruccion; j < (numInstruccion + 4); ++j)
                     {
                         instruccion[j % 4] = cache_instrucciones_nucleo2[numBloque % 8, j];
                     }
                     PC2 += 4;
                     ejecutarInstruccion2(ref instruccion, numHilo2);
                     quantum2--;
+
                     if (quantum2 == 0 && !fin_hilos[numHilo2])
                     {
-                        for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
+                        for (int k = 0; k < 32; ++k)    //guarda el contexto (falta PC)
                         {
                             PCB[numHilo2, k] = registro_nucleo2[k];
+
                         }
                         PCB[numHilo2, 32] = PC2;
+                        robin.Enqueue(numHilo2); // Si aún no ha terminado,
+                        //lo volvemos a calendarizar para volverlo a calendarizar
+
+
                     }
-                    bandera_nucleo2_controlador.Set();
-                    bandera_controlador_nucleo2.WaitOne();
+
                 }
 
-
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
 
 
             }
 
+            
             while (!finPrograma)
             {
                 bandera_nucleo2_controlador.Set();
                 bandera_controlador_nucleo2.WaitOne();
             }
+            
         }
 
 
@@ -656,12 +705,35 @@ namespace Arqui_Simulacion
 
             while(!finPrograma)
             {
+                bandera_controlador_impresor.WaitOne();
+
                 richTextBox1.AppendText(textoInterfaz);
 
                 Application.DoEvents();
                 
-            } 
+            }
+
+
+            richTextBox1.Clear();
+
+            richTextBox1.AppendText(textoFinal);
             
+        }
+
+        private void agregarRegistros(ref int[] registros, int hilo, int nucleo)
+        {
+            bandera_agregar_registros.WaitOne();
+
+            textoFinal += "Hilo: "+hilo+" Nucleo: "+nucleo+"\n";
+            textoFinal += "Registros: ";
+            for (int i = 0; i < 32; ++i )
+            {
+                textoFinal += "" + i + " = " + registros[i]+", ";
+            }
+
+            textoFinal += "\n\n";
+
+            bandera_agregar_registros.Set();
         }
 
         private void ejecutarInstruccion1(ref int[] ins, int numHilo)
@@ -689,6 +761,7 @@ namespace Arqui_Simulacion
                     break;
 
                 case 14: //DIV
+                    
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] / registro_nucleo1[ins[2]];
                     //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " / Reg " + ins[2]);
                     break;
@@ -723,7 +796,8 @@ namespace Arqui_Simulacion
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    MessageBox.Show("Fin hilo " + numHilo);
+                    //MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
+                    agregarRegistros(ref registro_nucleo1, numHilo, 1);
                     break;
             }
         }
@@ -780,13 +854,14 @@ namespace Arqui_Simulacion
                     break;
 
                 case 2: //JR
-                    PC2 = registro_nucleo1[ins[1]];
+                    PC2 = registro_nucleo2[ins[1]];
                     //MessageBox.Show("PC1 = Reg " + ins[1]);
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    MessageBox.Show("Fin hilo " + numHilo);
+                   MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
+                    agregarRegistros(ref registro_nucleo2, numHilo, 2);
                     break;
             }
         }
