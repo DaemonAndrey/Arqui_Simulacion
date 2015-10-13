@@ -240,9 +240,9 @@ namespace Arqui_Simulacion
                  }
 
 
-                if(imprimir)
+                if(true)
                 {
-                                         //MessageBox.Show(" " + reloj);
+                    //MessageBox.Show(" " + reloj);
                     textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
                         + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
                         + hilo_a_ejecutar[1]+"\n";
@@ -268,12 +268,7 @@ namespace Arqui_Simulacion
 
                     imprimir = false;
 
-/* CONFLICTO (Esto ya no es necesario?)
-                //MessageBox.Show(" " + reloj);
-                textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
-                    + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
-                    + hilo_a_ejecutar[1]+"\n";
-*/
+
                 }
 
 
@@ -548,8 +543,10 @@ namespace Arqui_Simulacion
                             }
                             else
                             {
+                                //MessageBox.Show("Nucleo 2 esperando bus");
                                 bandera_nucleo2_controlador.Set();
                                 bandera_controlador_nucleo2.WaitOne();
+                                
                             }
                         }
                         busOcupado = false;
@@ -754,7 +751,7 @@ namespace Arqui_Simulacion
 
             while(!finPrograma)
             {
-                bandera_controlador_impresor.WaitOne();
+                //bandera_controlador_impresor.WaitOne();
 
                 richTextBox1.AppendText(textoInterfaz);
 
@@ -846,8 +843,8 @@ namespace Arqui_Simulacion
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    //MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
-                    agregarRegistros(ref registro_nucleo1, numHilo, 1);
+                    MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
+                    //agregarRegistros(ref registro_nucleo1, numHilo, 1);
                     break;
             }
         }
@@ -912,8 +909,8 @@ namespace Arqui_Simulacion
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                   MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
-                    agregarRegistros(ref registro_nucleo2, numHilo, 2);
+                    MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
+                    //agregarRegistros(ref registro_nucleo2, numHilo, 2);
                     break;
             }
         }
