@@ -28,8 +28,6 @@ namespace Arqui_Simulacion
         private int[,] cache_instrucciones_nucleo1;
         private int[,] cache_instrucciones_nucleo2;
 
-        private int[] bloques_cache_instrucciones_nucleo1; //indica el número de bloques que están en caché
-        private int[] bloques_cache_instrucciones_nucleo2;
 
         private int[] hilo_a_ejecutar; //indica cual hilo va a ejecutar cada núcleo
 
@@ -101,8 +99,7 @@ namespace Arqui_Simulacion
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
 
-            bloques_cache_instrucciones_nucleo1 = new int[8];
-            bloques_cache_instrucciones_nucleo2 = new int[8];
+
 
             hilo_a_ejecutar = new int[2];
 
@@ -140,22 +137,20 @@ namespace Arqui_Simulacion
             bus.Add(2);
             bus.Add(3);
 
-            for (int i = 0; i < 8; i++)
-            {
-                bloques_cache_instrucciones_nucleo1[i] = -1;
-                bloques_cache_instrucciones_nucleo2[i] = -1;
-            }
         }
 
 
 
         public void controlador()
         {
-
+            
             for (int i = 0; i < numHilos; ++i )
             {
                 robin.Enqueue(i);
             }
+            
+
+
 
             bool imprimir = false;
 
@@ -176,6 +171,7 @@ namespace Arqui_Simulacion
             while(!finPrograma)
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
+
 
                  if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
                  {
@@ -768,6 +764,7 @@ namespace Arqui_Simulacion
 
         private void agregarRegistros(ref int[] registros, int hilo, int nucleo)
         {
+
             bandera_agregar_registros.WaitOne();
 
             textoFinal += "Hilo: "+hilo+" Nucleo: "+nucleo+"\n";
@@ -843,8 +840,8 @@ namespace Arqui_Simulacion
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
-                    //agregarRegistros(ref registro_nucleo1, numHilo, 1);
+                    //MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
+                    agregarRegistros(ref registro_nucleo1, numHilo, 1);
                     break;
             }
         }
@@ -903,14 +900,14 @@ namespace Arqui_Simulacion
 
                 case 2: //JR
 
-                    PC2 = registro_nucleo1[ins[1]];
+                    PC2 = registro_nucleo2[ins[1]];
                     //MessageBox.Show("PC2 = Reg " + ins[1]);
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
-                    //agregarRegistros(ref registro_nucleo2, numHilo, 2);
+                   // MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
+                    agregarRegistros(ref registro_nucleo2, numHilo, 2);
                     break;
             }
         }
