@@ -72,3 +72,7 @@ C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simu
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Properties.Resources.resources
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csprojResolveAssemblyReference.cache
+C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.application
+C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application

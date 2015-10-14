@@ -16,7 +16,7 @@ namespace Arqui_Simulacion
     {
 
         private int[] RAM;
-        private bool archivosCargados;
+
 
         private int[] registro_nucleo1;
         private int[] registro_nucleo2;
@@ -39,37 +39,37 @@ namespace Arqui_Simulacion
         private bool nucleo1Activo;
         private bool nucleo2Activo;
 
-        private int[,] PCB;
+        private int[,] PCB; //Estructura que guarda los contextos de los hilos
 
-        private int PC1;
-        private int PC2;
+        private int PC1; // Prorgram counter del núcleo 1
+        private int PC2; // Prorgram counter del núcleo 1
 
 
-        private int quantum;
+        private int quantum;  //Guarda el quantum que el usuario especifica en interfaz
 
-        private int tiempoLecturaEscritura;
+        private int tiempoLecturaEscritura; 
         private int tiempoTransferencia;
-        private bool modoLento;
+        private int delay;
         private int numHilos;
 
-        private int quantum1;
-        private int quantum2;
+        private int quantum1; //Guarda el quantum local del hilo 1
+        private int quantum2; 
 
-        private WaitHandle[] banderas_nucleos_controlador;
+        private WaitHandle[] banderas_nucleos_controlador; // Array de semáforo de los núcleos al controlador
 
-        private AutoResetEvent bandera_nucleo1_controlador;
-        private AutoResetEvent bandera_nucleo2_controlador;
+        private AutoResetEvent bandera_nucleo1_controlador; //Semáforo del núcleo 1 al controlador
+        private AutoResetEvent bandera_nucleo2_controlador; //Semáforo del núcleo 2 al controlador
 
-        private AutoResetEvent bandera_controlador_nucleo1;
-        private AutoResetEvent bandera_controlador_nucleo2;
+        private AutoResetEvent bandera_controlador_nucleo1; //Semáforo del controlador al núcleo 1
+        private AutoResetEvent bandera_controlador_nucleo2; //Semáforo del controlador al núcleo 2
 
-        private AutoResetEvent bandera_controlador_impresor;
 
-        private AutoResetEvent bandera_agregar_registros;
 
-        private ArrayList bus;
+        private AutoResetEvent bandera_agregar_registros; //Semáforo para controlar la escritura de los núcleos
 
-        private Queue<int> robin;
+        private ArrayList bus; //Bus de datos
+
+        private Queue<int> robin; //Cola de round robin
 
         private string textoInterfaz;
 
@@ -79,6 +79,7 @@ namespace Arqui_Simulacion
         {
             InitializeComponent();
 
+            button1.Enabled = false;
 
             textoInterfaz = "";
 
@@ -86,7 +87,11 @@ namespace Arqui_Simulacion
 
             robin = new Queue<int>();
 
-            modoLento = false;
+            delay = 0;
+
+            finPrograma = false; //bandera para finalizar el programa
+            nucleo1Activo = true;
+            nucleo2Activo = true;
 
 
             RAM = new int[2048];
@@ -107,43 +112,38 @@ namespace Arqui_Simulacion
 
             bus = new ArrayList(4);
 
-            banderas_nucleos_controlador = new WaitHandle[2];
-
-            bandera_nucleo1_controlador = new AutoResetEvent(true);
-            bandera_nucleo2_controlador = new AutoResetEvent(true);
-
-            banderas_nucleos_controlador[0] = bandera_nucleo1_controlador;
-            banderas_nucleos_controlador[1] = bandera_nucleo2_controlador;
-
-            bandera_controlador_nucleo1 = new AutoResetEvent(false);
-            bandera_controlador_nucleo2 = new AutoResetEvent(false);
-
-            bandera_controlador_impresor = new AutoResetEvent(false);
-
-            bandera_agregar_registros = new AutoResetEvent(true);
-
-            default_values();
-        }
-
-        private void default_values()
-        {
-            button1.Enabled = false;
-            finPrograma = false;
-            nucleo1Activo = true;
-            nucleo2Activo = true;
-
             bus.Add(0);
             bus.Add(1);
             bus.Add(2);
             bus.Add(3);
 
+
+
+            banderas_nucleos_controlador = new WaitHandle[2];
+
+            //El true permite que la primera vez que hace wait, siga adelante
+            bandera_nucleo1_controlador = new AutoResetEvent(true); 
+            bandera_nucleo2_controlador = new AutoResetEvent(true);
+
+            banderas_nucleos_controlador[0] = bandera_nucleo1_controlador;
+            banderas_nucleos_controlador[1] = bandera_nucleo2_controlador;
+
+            //El false permite que la primera vez que hace wait se detenga
+            bandera_controlador_nucleo1 = new AutoResetEvent(false);
+            bandera_controlador_nucleo2 = new AutoResetEvent(false);
+
+            //El true permita que la primera vez que hace wait, siga adelante
+            bandera_agregar_registros = new AutoResetEvent(true);
+
         }
+
+
 
 
 
         public void controlador()
         {
-            
+            //Agregamos los hilos al round robin
             for (int i = 0; i < numHilos; ++i )
             {
                 robin.Enqueue(i);
@@ -152,11 +152,12 @@ namespace Arqui_Simulacion
 
 
 
-            bool imprimir = false;
 
-            Thread nucleo1 = new Thread(new ThreadStart(nucleo_1));
+
+            //Creamos e inicializamos los hilos de los núcleos
+            Thread nucleo1 = new Thread(new ThreadStart(nucleo_1)); 
             nucleo1.Name = "nucleo1";
-            nucleo1.Start();
+            nucleo1.Start(); //Los ponemos a correr 
             Thread nucleo2 = new Thread(new ThreadStart(nucleo_2));
             nucleo2.Name = "nucleo2";
             nucleo2.Start();
@@ -172,28 +173,21 @@ namespace Arqui_Simulacion
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
 
-
+                //Si se vencio el quantum, el hilo terminó y el núcleo continúa activo es hora de asignar otro hilo
                  if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
                  {
                      
                      if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
                      {
 
-
-                         hilo_a_ejecutar[0] = robin.Dequeue();//getIndice(hilo_a_ejecutar[1], contador);
+                         hilo_a_ejecutar[0] = robin.Dequeue();
 
                          quantum1 = quantum;
-                         imprimir = true;
-
-                         //MessageBox.Show("1: "+hilo_a_ejecutar[0]);
 
                      }
                      else 
                      {
-
-
                          nucleo1Activo = false;
-                         imprimir = true;
 
 
                          if (!nucleo2Activo)
@@ -208,22 +202,17 @@ namespace Arqui_Simulacion
                  
                  if((quantum2 == 0 || fin_hilos[hilo_a_ejecutar[1]]) && nucleo2Activo)
                  {
-                     //MessageBox.Show("Hola 2");
+
                      if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
                      {
 
-                         hilo_a_ejecutar[1] = robin.Dequeue();//getIndice(hilo_a_ejecutar[1], contador);
-                         //MessageBox.Show("2: " + hilo_a_ejecutar[1]);
+                         hilo_a_ejecutar[1] = robin.Dequeue();
                          quantum2 = quantum;
 
-                         imprimir = true;
                      }
                      else
                      {
                          nucleo2Activo = false;
-                         imprimir = true;
-
-                     
 
                          if (!nucleo1Activo)
                          {
@@ -236,98 +225,64 @@ namespace Arqui_Simulacion
                  }
 
 
-                if(true)
+
+
+                textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
+                    + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
+                    + hilo_a_ejecutar[1]+"\n";
+
+                textoInterfaz += "Los registros del núcleo 1 contienen: \n";
+
+                
+                for (int i = 0; i < 32; ++i )
                 {
-                    //MessageBox.Show(" " + reloj);
-                    textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
-                        + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
-                        + hilo_a_ejecutar[1]+"\n";
-
-                    textoInterfaz += "Los registros del núcleo 1 contienen: \n";
-
-                
-                    for (int i = 0; i < 32; ++i )
-                    {
-                        textoInterfaz += registro_nucleo1[i] + ", ";
-                    }
-
-                    textoInterfaz += "\n Los registros del núcleo 2 contienen: \n";
-
-                    for (int i = 0; i < 32; ++i)
-                    {
-                        textoInterfaz += registro_nucleo2[i] + ", ";
-                    }
-                
-                    textoInterfaz += "\n" ;
-
-                    bandera_controlador_impresor.Set(); // Habilitamos al hilo principal para que imprima
-
-                    imprimir = false;
-
-
+                    textoInterfaz += registro_nucleo1[i] + ", ";
                 }
 
+                textoInterfaz += "\n Los registros del núcleo 2 contienen: \n";
 
+                for (int i = 0; i < 32; ++i)
+                {
+                    textoInterfaz += registro_nucleo2[i] + ", ";
+                }
+                
+                textoInterfaz += "\n" ;
 
                 ++reloj;
 
-                /**
-                if(nucleo1Activo)
-                {
-                    bandera_controlador_nucleo1.Set();
-                }
-
-                if (nucleo2Activo)
-                {
-                    bandera_controlador_nucleo2.Set();
-                }
-                **/
-
-                if(!finPrograma)
-                {
-                    bandera_controlador_nucleo1.Set();
-                    bandera_controlador_nucleo2.Set();
-                }
-                else
-                {
-                    bandera_controlador_impresor.Set();
-                }
-
                 
+
+                bandera_controlador_nucleo1.Set();
+                bandera_controlador_nucleo2.Set();
+             
             }
-
-
-
-           
-
-
-
             
         }
 
         public void nucleo_1()
         {
 
-            ArrayList bloques_cargados = new ArrayList();
+            ArrayList bloques_cargados = new ArrayList(); //Lleva la cuenta de los bloques cargados
 
             for (int i = 0; i < 8; ++i )
             {
-                bloques_cargados.Add(-1);
+                bloques_cargados.Add(-1); //Lo inicializamos en -1 para asegurar que cuando empieza a ejecutarse no haya ningún bloque
             }
 
             int numInstruccion;
-            int [] instruccion = new int[4];
-            bool busOcupado = false;
-            int numHilo1;
-            int numBloque;
+            int [] instruccion = new int[4]; //Guarda la instrucción cargada
+            bool busOcupado = false; 
+            int numHilo1; //Hilo actual
+            int numBloque;// Número de bloque a cargar
             int offset = 0;
 
 
-            //bandera_controlador_nucleo1.WaitOne();
             while (nucleo1Activo)
             {
+
+                Thread.Sleep(delay);
                 bandera_controlador_nucleo1.WaitOne();
-                numHilo1 = hilo_a_ejecutar[0];
+                numHilo1 = hilo_a_ejecutar[0]; //pedimos el hilo seleccionado por round robin
   
                     for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
                     {
@@ -335,34 +290,35 @@ namespace Arqui_Simulacion
                         registro_nucleo1[i] = PCB[numHilo1, i];
                     }
 
-                    PC1 = PCB[numHilo1, 32];
+                    PC1 = PCB[numHilo1, 32]; //Recuperamos el contexto
 
                     while ( (quantum1 != 0) && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
 
                         numBloque = (int) Math.Floor((double)PC1 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
-                        //MessageBox.Show("Nucleo 1 bloque " + numBloque);
+
 
 
                         if (!bloques_cargados.Contains(numBloque))
                         {
                             while (!busOcupado)
                             {
-                                if (Monitor.TryEnter(bus))
+                                if (Monitor.TryEnter(bus)) //Esto funciona como un lock
                                 {
                                     try
                                     {
                                         /** fallo de caché **/
-                                        //MessageBox.Show("Nucleo 1 fallo cache");
+
                                         busOcupado = true;
                                         offset = 0;
                                         for (int n = 0; n < 4; ++n)
-                                        {
+                                        { //Cargamos de la RAM
                                             for (int m = 0; m < bus.Count; ++m)
                                             {
                                                 bus[m] = RAM[numBloque * 16 + m + offset];
                                             }
 
+                                            //Cargamos a la caché de instrucciones
                                             for (int m = 0; m < 4; m++)
                                             {
                                                 cache_instrucciones_nucleo1[numBloque % 8, m + offset] = (int)bus[m];
@@ -371,11 +327,12 @@ namespace Arqui_Simulacion
                                             offset += 4;
                                         }
 
-                                        //bloques_cache_instrucciones_nucleo1[numBloque % 8] = numBloque;
+                                        //Grabamos el número de bloque en la estructura
                                         bloques_cargados[numBloque % 8] = numBloque;
 
                                         for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
                                         {
+                                            //Simulamos el tiempo de transferencia y escritura
                                             bandera_nucleo1_controlador.Set();
                                             bandera_controlador_nucleo1.WaitOne();
                                         }
@@ -385,13 +342,13 @@ namespace Arqui_Simulacion
                                     }
                                     finally
                                     {
-                                        Monitor.Exit(bus);
+                                        Monitor.Exit(bus); //Habilitamos el bus
 
                                     }
                                 }
                                 else
                                 {
-                                    //MessageBox.Show("Nucleo 1 esperando bus");
+                                    //Si el bus está ocupado, dejamos actualizar el reloj.
                                     bandera_nucleo1_controlador.Set();
                                     bandera_controlador_nucleo1.WaitOne();
                                 }
@@ -399,19 +356,15 @@ namespace Arqui_Simulacion
                             busOcupado = false;
                         }
 
-                        else
-                        {
-                            //MessageBox.Show("Bloque " + numBloque + " en cache");
-                        }
 
-                        numInstruccion = PC1 % 16;
+                        numInstruccion = PC1 % 16; //Calculamos el número de instrucción
                         for (int j = numInstruccion; j < numInstruccion + 4; ++j)
                         {
                             instruccion[j % 4] = cache_instrucciones_nucleo1[numBloque % 8, j];
                         }
-                        //MessageBox.Show("Nucleo 1 instruccion = " + instruccion[0] + " " + instruccion[1] + " " + instruccion[2] + " " + instruccion[3]);
-                        PC1 += 4;
-                        ejecutarInstruccion1(ref instruccion, numHilo1);
+                        
+                        PC1 += 4; 
+                        ejecutarInstruccion1(ref instruccion, numHilo1); // mandamos a ejecutar la instrucción
 
                         quantum1--;
 
@@ -437,14 +390,7 @@ namespace Arqui_Simulacion
                     }
 
                     bandera_nucleo1_controlador.Set();
-/*
-                    }
-
-                    bandera_nucleo1_controlador.Set();
-                    bandera_controlador_nucleo1.WaitOne();
-
-
-*/                
+               
             }
 
             
@@ -456,7 +402,9 @@ namespace Arqui_Simulacion
              
         }
 
-
+        /**
+         * Véase los comentarios del núcleo 1, ya que ambos son iguales
+        **/
         public void nucleo_2()
         {
             ArrayList bloques_cargados = new ArrayList();
@@ -473,13 +421,14 @@ namespace Arqui_Simulacion
             int offset = 0;
             bool busOcupado = false;
 
-            //bandera_controlador_nucleo2.WaitOne();
             while (nucleo2Activo)
             {
+                Thread.Sleep(delay);
+
                 bandera_controlador_nucleo2.WaitOne();
 
                 numHilo2 = hilo_a_ejecutar[1];
-                //MessageBox.Show("En el nucleo 2: "+hilo_a_ejecutar[1]);
+
 
                 for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
                 {
@@ -493,7 +442,7 @@ namespace Arqui_Simulacion
 
 
                     numBloque = (int)Math.Floor((double)PC2 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
-                    //MessageBox.Show("Nucleo 2 bloque " + numBloque);
+
                     if (!bloques_cargados.Contains(numBloque))
                     {
                         while (!busOcupado)
@@ -502,8 +451,7 @@ namespace Arqui_Simulacion
                             {
                                 try
                                 {
-                                    /** TODO: Aquí va el fallo de caché **/
-                                    //MessageBox.Show("Nucleo 2 Fallo Cache");
+                                    //Fallo de caché
                                     busOcupado = true;
                                     offset = 0;
                                     for (int n = 0; n < 4; ++n)
@@ -539,7 +487,7 @@ namespace Arqui_Simulacion
                             }
                             else
                             {
-                                //MessageBox.Show("Nucleo 2 esperando bus");
+
                                 bandera_nucleo2_controlador.Set();
                                 bandera_controlador_nucleo2.WaitOne();
                                 
@@ -547,17 +495,14 @@ namespace Arqui_Simulacion
                         }
                         busOcupado = false;
                     }
-                    else
-                    {
-                        //MessageBox.Show("Bloque " + numBloque + " en cache");
-                    }
+
 
                     numInstruccion = PC2 % 16;
                     for (int j = numInstruccion; j < (numInstruccion + 4); ++j)
                     {
                         instruccion[j % 4] = cache_instrucciones_nucleo2[numBloque % 8, j];
                     }
-                    //MessageBox.Show("Nucleo 2 instruccion = " + instruccion[0] + " " + instruccion[1] + " " + instruccion[2] + " " + instruccion[3]);
+                    
                     PC2 += 4;
                     ejecutarInstruccion2(ref instruccion, numHilo2);
                     quantum2--;
@@ -585,14 +530,6 @@ namespace Arqui_Simulacion
                 }
 
                 bandera_nucleo2_controlador.Set();
-/*
-                }
-
-                    bandera_nucleo2_controlador.Set();
-                    bandera_controlador_nucleo2.WaitOne();
-
-
-*/
             }
 
             
@@ -605,24 +542,15 @@ namespace Arqui_Simulacion
         }
 
 
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
 
         private void radioButton1_CheckedChanged(object sender, EventArgs e)
         {
-            button2.Visible = true;
-            modoLento = true;
+            delay = 15;
         }
 
-        private void radioButton2_CheckedChanged(object sender, EventArgs e)
-        {
-            button2.Visible = false;
-            modoLento = false;
-        }
-
-
+        /**
+         * Permite cargar los archivos
+         **/
         private void button1_Click(object sender, EventArgs e)
         {
             
@@ -680,32 +608,12 @@ namespace Arqui_Simulacion
             }
 
 
-            /**if ((int.Parse(textBox1.Text) != contador) && (contador > 0))
-            {
-                textBox1.Text = "" + contador;
-
-                MessageBox.Show("El parámetro que usted especificó para la cantidad de hilos " +
-                "no coincide con la cantidad de archivos que escogió, pero lo hemos cambiado, no se preocupe.",
-                "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
-            }**/
-
-            archivosCargados = true; //Indicamos que ya los archivos se cargaron
-
-
-
             Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
             control.Start();
 
             actualizarInterfaz();
         }
 
-        private void textBox1_TextChanged(object sender, EventArgs e)
-        {
-            
-
-            
-        }
 
         /**
          * Carga todos los datos de la interfaz
@@ -747,7 +655,7 @@ namespace Arqui_Simulacion
 
             while(!finPrograma)
             {
-                //bandera_controlador_impresor.WaitOne();
+                Thread.Sleep(delay);
 
                 richTextBox1.AppendText(textoInterfaz);
 
@@ -755,6 +663,11 @@ namespace Arqui_Simulacion
                 
             }
 
+            textoFinal += "El contenido de la memoria RAM es: \n\n";
+            for (int i = 0; i < 2048; ++i )
+            {
+                textoFinal += RAM[i]+ ", ";
+            }
 
             richTextBox1.Clear();
 
@@ -762,16 +675,19 @@ namespace Arqui_Simulacion
             
         }
 
+        /**
+         * Cada vez que un hilo termina, agregamos sus regristros a un string que se imprimirá al final.
+         **/
         private void agregarRegistros(ref int[] registros, int hilo, int nucleo)
         {
 
             bandera_agregar_registros.WaitOne();
 
             textoFinal += "Hilo: "+hilo+" Nucleo: "+nucleo+"\n";
-            textoFinal += "Registros: ";
+            textoFinal += "Registros: \n";
             for (int i = 0; i < 32; ++i )
             {
-                textoFinal += "" + i + " = " + registros[i]+", ";
+                textoFinal += "R" + i + " = " + registros[i]+"\n";
             }
 
             textoFinal += "\n\n";
@@ -785,28 +701,28 @@ namespace Arqui_Simulacion
             {
                 case 8: //ADDI
                     registro_nucleo1[ins[2]] = registro_nucleo1[ins[1]] + ins[3];
-                    //MessageBox.Show("Reg " + ins[2] + " = Reg " + ins[1] + " + " + ins[3]);
+    
                     break;
 
                 case 32: //ADD
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] + registro_nucleo1[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " + Reg " + ins[2]);
+
                     break;
 
                 case 34: //SUB
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] - registro_nucleo1[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " - Reg " + ins[2]);
+
                     break;
 
                 case 12: //MUL
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] * registro_nucleo1[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " * Reg " + ins[2]);
+
                     break;
 
                 case 14: //DIV
                     
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] / registro_nucleo1[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " / Reg " + ins[2]);
+
                     break;
 
                 case 4: //BEQZ
@@ -814,7 +730,7 @@ namespace Arqui_Simulacion
                     if (registro_nucleo1[ins[1]] == 0)
                     {
                         PC1 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + PC1);
+
                     }
                     break;
 
@@ -822,25 +738,24 @@ namespace Arqui_Simulacion
                     if (registro_nucleo1[ins[1]] != 0)
                     {
                         PC1 += ins[3] * 4;
-                        //MessageBox.Show("PC1 = " + PC1);
+
                     }
                     break;
 
                 case 3: //JAL
                     registro_nucleo1[31] = PC1;
                     PC1 += ins[3];
-                    //MessageBox.Show("Registro 31 = " + registro_nucleo1[31]);
-                    //MessageBox.Show("PC1 = " + PC1);
+
                     break;
 
                 case 2: //JR
                     PC1 = registro_nucleo1[ins[1]];
-                    //MessageBox.Show("PC1 = Reg " + ins[1]);
+
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                    //MessageBox.Show("Nucleo 1: Termino el hilo " + numHilo);
+
                     agregarRegistros(ref registro_nucleo1, numHilo, 1);
                     break;
             }
@@ -852,34 +767,34 @@ namespace Arqui_Simulacion
             {
                 case 8: //ADDI
                     registro_nucleo2[ins[2]] = registro_nucleo2[ins[1]] + ins[3];
-                    //MessageBox.Show("Reg " + ins[2] + " = Reg " + ins[1] + " + " + ins[3]);
+
                     break;
 
                 case 32: //ADD
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] + registro_nucleo2[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " + Reg " + ins[2]);
+
                     break;
 
                 case 34: //SUB
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] - registro_nucleo2[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " - Reg " + ins[2]);
+     
                     break;
 
                 case 12: //MUL
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] * registro_nucleo2[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " * Reg " + ins[2]);
+
                     break;
 
                 case 14: //DIV
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] / registro_nucleo2[ins[2]];
-                    //MessageBox.Show("Reg " + ins[3] + " = Reg " + ins[1] + " / Reg " + ins[2]);
+ 
                     break;
 
                 case 4: //BEQZ
                     if (registro_nucleo2[ins[1]] == 0)
                     {
                         PC2 += ins[3] * 4;
-                        //MessageBox.Show("PC2 = " + PC2);
+
                     }
                     break;
 
@@ -887,29 +802,33 @@ namespace Arqui_Simulacion
                     if (registro_nucleo2[ins[1]] != 0)
                     {
                         PC2 += ins[3] * 4;
-                        //MessageBox.Show("PC2 = " + PC2);
+
                     }
                     break;
 
                 case 3: //JAL
                     registro_nucleo2[31] = PC2;
                     PC2 += ins[3];
-                    //MessageBox.Show("Reg 31 = " + registro_nucleo2[31]);
-                    //MessageBox.Show("PC2 = " + PC2);
+
                     break;
 
                 case 2: //JR
 
                     PC2 = registro_nucleo2[ins[1]];
-                    //MessageBox.Show("PC2 = Reg " + ins[1]);
+
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
-                   // MessageBox.Show("Nucleo 2: Termino el hilo " + numHilo);
+
                     agregarRegistros(ref registro_nucleo2, numHilo, 2);
                     break;
             }
+        }
+
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            delay = 0;
         }
 
         
