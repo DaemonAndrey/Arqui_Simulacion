@@ -15,7 +15,8 @@ namespace Arqui_Simulacion
     public partial class Form1 : Form
     {
 
-        private int[] RAM;
+        private int[] RAMInstrucciones;
+        private int[] RAMDatos;
 
 
         private int[] registro_nucleo1;
@@ -94,12 +95,45 @@ namespace Arqui_Simulacion
             nucleo2Activo = true;
 
 
-            RAM = new int[2048];
+            RAMInstrucciones = new int[640];
+            RAMDatos = new int[352];
+
+            //Inicializar RAM de Datos
+            for (int i = 0; i < 352; i++)
+            {
+                RAMDatos[i] = 1;
+            }
+
             registro_nucleo1 = new int[32];
             registro_nucleo2 = new int[32];
 
-            cache_datos_nucleo1 = new int[8, 16];
-            cache_datos_nucleo2 = new int[8, 16];
+            cache_datos_nucleo1 = new int[8, 20];
+            cache_datos_nucleo2 = new int[8, 20];
+
+            //Inicializar cachés de Datos en 0, etiqueta en -1 y banderas apagadas
+            for (int i = 0; i < 8; i++)
+            {
+                for (int j = 0; j < 16; i++)
+                {
+                    cache_datos_nucleo1[i,j] = 0;
+                }
+                cache_datos_nucleo1[i, 16] = -1;
+                cache_datos_nucleo1[i, 17] = 0;
+                cache_datos_nucleo1[i, 18] = 0;
+                cache_datos_nucleo1[i, 19] = 0;
+            }
+
+            for (int i = 0; i < 8; i++)
+            {
+                for (int j = 0; j < 16; i++)
+                {
+                    cache_datos_nucleo2[i, j] = 0;
+                }
+                cache_datos_nucleo2[i, 16] = -1;
+                cache_datos_nucleo2[i, 17] = 0;
+                cache_datos_nucleo2[i, 18] = 0;
+                cache_datos_nucleo2[i, 19] = 0;
+            }
 
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
@@ -315,7 +349,7 @@ namespace Arqui_Simulacion
                                         { //Cargamos de la RAM
                                             for (int m = 0; m < bus.Count; ++m)
                                             {
-                                                bus[m] = RAM[numBloque * 16 + m + offset];
+                                                bus[m] = RAMInstrucciones[numBloque * 16 + m + offset];
                                             }
 
                                             //Cargamos a la caché de instrucciones
@@ -458,7 +492,7 @@ namespace Arqui_Simulacion
                                     {
                                         for (int m = 0; m < 4; ++m)
                                         {
-                                            bus[m] = RAM[numBloque * 16 + m + offset];
+                                            bus[m] = RAMInstrucciones[numBloque * 16 + m + offset];
                                         }
 
                                         for (int m = 0; m < 4; ++m)
@@ -596,7 +630,7 @@ namespace Arqui_Simulacion
 
                     for (int i = 0; i < 4; ++i, ++puntero)
                     {
-                        RAM[puntero] = temporal[i];
+                        RAMInstrucciones[puntero] = temporal[i];
                     }
 
                     linea = sr.ReadLine();
@@ -666,7 +700,7 @@ namespace Arqui_Simulacion
             textoFinal += "El contenido de la memoria RAM es: \n\n";
             for (int i = 0; i < 2048; ++i )
             {
-                textoFinal += RAM[i]+ ", ";
+                textoFinal += RAMInstrucciones[i]+ ", ";
             }
 
             richTextBox1.Clear();

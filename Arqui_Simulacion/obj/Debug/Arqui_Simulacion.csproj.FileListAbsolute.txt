@@ -76,3 +76,6 @@ C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simu
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.application
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
 C:\Users\andre\Documents\GitHub\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application
+C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.config
+C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe
+C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.pdb
