@@ -68,7 +68,8 @@ namespace Arqui_Simulacion
 
         private AutoResetEvent bandera_agregar_registros; //Semáforo para controlar la escritura de los núcleos
 
-        private ArrayList bus; //Bus de datos
+        private ArrayList bus; //Bus de instrucciones
+        private ArrayList busDatos;
 
         private Queue<int> robin; //Cola de round robin
 
@@ -151,7 +152,12 @@ namespace Arqui_Simulacion
             bus.Add(2);
             bus.Add(3);
 
+            busDatos = new ArrayList(4);
 
+            busDatos.Add(0);
+            busDatos.Add(1);
+            busDatos.Add(2);
+            busDatos.Add(3);
 
             banderas_nucleos_controlador = new WaitHandle[2];
 
@@ -729,6 +735,128 @@ namespace Arqui_Simulacion
             bandera_agregar_registros.Set();
         }
 
+        private bool buscarEnCacheDatos1(int direccion)
+        {
+            bool encontrado = false;
+
+            return encontrado;
+        }
+
+        private void resolverFalloCacheDatos1(int direccion)
+        {
+            //Calcular número de bloque
+            int bloque = (int)(Math.Floor((float)direccion / 16));
+            int numDato = direccion % 4;
+            bool tengoBus = false;
+            bool encontradoEnOtraCache = false;
+            bool traerDeMemoria = true;
+            while (!tengoBus)
+            {
+                //Reservar caché propia
+                if (Monitor.TryEnter(cache_datos_nucleo1))
+                {
+                    try
+                    {
+                        //Reservar bus
+                        if (Monitor.TryEnter(busDatos))
+                        {
+                            try
+                            {
+                                //Reservar otra caché
+                                if (Monitor.TryEnter(cache_datos_nucleo2))
+                                {
+                                    try
+                                    {
+                                        //Buscar bloque en la otra caché
+                                        int i = 0;
+                                        while (i < 8 && !encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo2[i, 16] == bloque)
+                                            {
+                                                encontradoEnOtraCache = true;
+                                            }
+                                            i++;
+                                        }
+                                        i--;
+
+                                        //Si se encontró, revisar si está modificado
+                                        if (encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo2[i, 18] == 1)
+                                            {
+                                                traerDeMemoria = false;
+                                            }
+                                        }
+
+                                        //Si está modificado, traer el bloque de la otra caché
+                                        if (!traerDeMemoria)
+                                        {
+                                            WriteBackNucleo1(false, bloque, i);
+                                        }
+
+                                    }
+
+                                    finally
+                                    {
+                                        //Liberar caché del otro núcleo
+                                        Monitor.Exit(cache_datos_nucleo2);
+                                    }
+                                }
+
+                                //Si el bloque nuevo no está en la otra caché o no está modificado
+                                if (traerDeMemoria)
+                                {
+                                    WriteBackNucleo1(true, bloque, bloque % 8);
+                                }
+                            }
+
+                            finally
+                            {
+                                //Liberar bus
+                                Monitor.Exit(busDatos);
+                            }
+                        }
+                    }
+
+                    finally
+                    {
+                        //Liberar caché propia
+                        Monitor.Exit(cache_datos_nucleo1);
+                    }
+                }
+                else
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
+            }
+        }
+
+
+        /**
+         * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
+         **/
+        private void WriteBackNucleo1(bool memoria, int bloque, int indice)
+        {
+            //Si el bloque viejo está modificado, devolverlo a memoria
+            if (cache_datos_nucleo1[indice, 18] == 1)
+            {
+
+            }
+
+            //Traer bloque nuevo de memoria
+            if (memoria)
+            {
+
+            }
+            //Traer bloque nuevo de la otra caché
+            else
+            {
+
+            }
+        }
+
+
         private void ejecutarInstruccion1(ref int[] ins, int numHilo)
         {
             switch (ins[0])
@@ -791,6 +919,32 @@ namespace Arqui_Simulacion
                     fin_hilos[numHilo] = true;
 
                     agregarRegistros(ref registro_nucleo1, numHilo, 1);
+                    break;
+                    
+                case 35: //LW
+                    bool enCache;
+                    enCache = buscarEnCacheDatos1(ins[1] + ins[3]);
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos1(ins[1] + ins[3]);
+                    }
+
+
+                    break;
+
+                case 43: //SW
+
+
+                    break;
+
+                case 50: //LL
+
+
+                    break;
+
+                case 51: //SC
+
+
                     break;
             }
         }
