@@ -735,9 +735,15 @@ namespace Arqui_Simulacion
             bandera_agregar_registros.Set();
         }
 
-        private bool buscarEnCacheDatos1(int direccion)
+        private bool buscarEnCacheDatos1(int numBloque)
         {
             bool encontrado = false;
+            int mapeo = numBloque % 8;
+
+            if ((numBloque == cache_datos_nucleo1[mapeo, 4]) && (cache_datos_nucleo1[mapeo, 5] != -1))
+            {
+                encontrado = true;
+            }
 
             return encontrado;
         }
@@ -780,6 +786,7 @@ namespace Arqui_Simulacion
                                         i--;
 
                                         //Si se encontró, revisar si está modificado
+                                        //Los bloques de caché de datos miden lo mismo tanto en MIPS como en nuestra simulación (128 bits)
                                         if (encontradoEnOtraCache)
                                         {
                                             if (cache_datos_nucleo2[i, 6] == 1)
@@ -955,10 +962,10 @@ namespace Arqui_Simulacion
                     
                 case 35: //LW
                     bool enCache;
-                    enCache = buscarEnCacheDatos1(ins[1] + ins[3]);
+                    enCache = buscarEnCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
                     if (!enCache)
                     {
-                        resolverFalloCacheDatos1(ins[1] + ins[3]);
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
                     }
 
 
