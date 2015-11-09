@@ -108,8 +108,8 @@ namespace Arqui_Simulacion
             registro_nucleo1 = new int[32];
             registro_nucleo2 = new int[32];
 
-            cache_datos_nucleo1 = new int[8, 8];
-            cache_datos_nucleo2 = new int[8, 8];
+            cache_datos_nucleo1 = new int[8, 6];
+            cache_datos_nucleo2 = new int[8, 6];
 
             //Inicializar cachés de Datos en 0, etiqueta en -1 y banderas apagadas
             for (int i = 0; i < 8; i++)
@@ -735,7 +735,7 @@ namespace Arqui_Simulacion
             bandera_agregar_registros.Set();
         }
 
-        private bool buscarEnCacheDatos1(int direccion)
+        private bool buscarEnCacheDatos1(int bloque)
         {
             bool encontrado = false;
 
@@ -782,7 +782,7 @@ namespace Arqui_Simulacion
                                         //Si se encontró, revisar si está modificado
                                         if (encontradoEnOtraCache)
                                         {
-                                            if (cache_datos_nucleo2[i, 6] == 1)
+                                            if (cache_datos_nucleo2[i, 5] == 1)
                                             {
                                                 traerDeMemoria = false;
                                             }
@@ -839,7 +839,7 @@ namespace Arqui_Simulacion
         private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
         {
             //Si el bloque viejo está modificado, devolverlo a memoria
-            if (cache_datos_nucleo1[indice, 6] == 1)
+            if (cache_datos_nucleo1[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo1[indice, 4];
                 int direccion = bloqueViejo * 4;
@@ -883,9 +883,7 @@ namespace Arqui_Simulacion
 
             //Reiniciar banderas y actualizar etiqueta
             cache_datos_nucleo1[indice, 4] = bloqueNuevo;
-            cache_datos_nucleo1[indice, 5] = 1;
-            cache_datos_nucleo1[indice, 6] = 0;
-            cache_datos_nucleo1[indice, 7] = 0;
+            cache_datos_nucleo1[indice, 5] = -1;
         }
 
 
@@ -955,12 +953,15 @@ namespace Arqui_Simulacion
                     
                 case 35: //LW
                     bool enCache;
-                    enCache = buscarEnCacheDatos1(ins[1] + ins[3]);
+                    int bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    int dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    enCache = buscarEnCacheDatos1(bloque);
                     if (!enCache)
                     {
-                        resolverFalloCacheDatos1(ins[1] + ins[3]);
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
                     }
 
+                    registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
 
                     break;
 
