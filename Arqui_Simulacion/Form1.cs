@@ -108,32 +108,32 @@ namespace Arqui_Simulacion
             registro_nucleo1 = new int[32];
             registro_nucleo2 = new int[32];
 
-            cache_datos_nucleo1 = new int[8, 20];
-            cache_datos_nucleo2 = new int[8, 20];
+            cache_datos_nucleo1 = new int[8, 8];
+            cache_datos_nucleo2 = new int[8, 8];
 
             //Inicializar cachés de Datos en 0, etiqueta en -1 y banderas apagadas
             for (int i = 0; i < 8; i++)
             {
-                for (int j = 0; j < 16; i++)
+                for (int j = 0; j < 8; j++)
                 {
                     cache_datos_nucleo1[i,j] = 0;
                 }
-                cache_datos_nucleo1[i, 16] = -1;
-                cache_datos_nucleo1[i, 17] = 0;
-                cache_datos_nucleo1[i, 18] = 0;
-                cache_datos_nucleo1[i, 19] = 0;
+                cache_datos_nucleo1[i, 4] = -1;
+                cache_datos_nucleo1[i, 5] = 0;
+                cache_datos_nucleo1[i, 6] = 0;
+                cache_datos_nucleo1[i, 7] = 0;
             }
 
             for (int i = 0; i < 8; i++)
             {
-                for (int j = 0; j < 16; i++)
+                for (int j = 0; j < 8; j++)
                 {
                     cache_datos_nucleo2[i, j] = 0;
                 }
-                cache_datos_nucleo2[i, 16] = -1;
-                cache_datos_nucleo2[i, 17] = 0;
-                cache_datos_nucleo2[i, 18] = 0;
-                cache_datos_nucleo2[i, 19] = 0;
+                cache_datos_nucleo2[i, 4] = -1;
+                cache_datos_nucleo2[i, 5] = 0;
+                cache_datos_nucleo2[i, 6] = 0;
+                cache_datos_nucleo2[i, 7] = 0;
             }
 
             cache_instrucciones_nucleo1 = new int[8, 16];
@@ -771,7 +771,7 @@ namespace Arqui_Simulacion
                                         int i = 0;
                                         while (i < 8 && !encontradoEnOtraCache)
                                         {
-                                            if (cache_datos_nucleo2[i, 16] == bloque)
+                                            if (cache_datos_nucleo2[i, 4] == bloque)
                                             {
                                                 encontradoEnOtraCache = true;
                                             }
@@ -782,7 +782,7 @@ namespace Arqui_Simulacion
                                         //Si se encontró, revisar si está modificado
                                         if (encontradoEnOtraCache)
                                         {
-                                            if (cache_datos_nucleo2[i, 18] == 1)
+                                            if (cache_datos_nucleo2[i, 6] == 1)
                                             {
                                                 traerDeMemoria = false;
                                             }
@@ -836,24 +836,56 @@ namespace Arqui_Simulacion
         /**
          * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
          **/
-        private void WriteBackNucleo1(bool memoria, int bloque, int indice)
+        private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
         {
             //Si el bloque viejo está modificado, devolverlo a memoria
-            if (cache_datos_nucleo1[indice, 18] == 1)
+            if (cache_datos_nucleo1[indice, 6] == 1)
             {
+                int bloqueViejo = cache_datos_nucleo1[indice, 4];
+                int direccion = bloqueViejo * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    RAMDatos[direccion + i] = cache_datos_nucleo1[indice, i];
+                }
 
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
             }
 
             //Traer bloque nuevo de memoria
             if (memoria)
             {
+                int direccion = bloqueNuevo * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo1[indice, i] = RAMDatos[direccion + i];
+                }
 
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
             }
             //Traer bloque nuevo de la otra caché
             else
             {
-
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo1[indice, i] = cache_datos_nucleo2[indice, i];
+                }
             }
+
+            //Reiniciar banderas y actualizar etiqueta
+            cache_datos_nucleo1[indice, 4] = bloqueNuevo;
+            cache_datos_nucleo1[indice, 5] = 1;
+            cache_datos_nucleo1[indice, 6] = 0;
+            cache_datos_nucleo1[indice, 7] = 0;
         }
 
 
