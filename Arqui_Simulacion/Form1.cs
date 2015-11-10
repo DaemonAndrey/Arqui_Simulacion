@@ -105,8 +105,9 @@ namespace Arqui_Simulacion
                 RAMDatos[i] = 1;
             }
 
-            registro_nucleo1 = new int[32];
-            registro_nucleo2 = new int[32];
+            //32 registros y RL
+            registro_nucleo1 = new int[33];
+            registro_nucleo2 = new int[33];
 
             cache_datos_nucleo1 = new int[8, 6];
             cache_datos_nucleo2 = new int[8, 6];
@@ -892,7 +893,7 @@ namespace Arqui_Simulacion
 
             //Reiniciar banderas y actualizar etiqueta
             cache_datos_nucleo1[indice, 4] = bloqueNuevo;
-            cache_datos_nucleo1[indice, 5] = -1;
+            cache_datos_nucleo1[indice, 5] = 0;
         }
 
         private bool invalidarBloqueNucleo1(int bloque)
@@ -919,7 +920,7 @@ namespace Arqui_Simulacion
             }
 
             //Devolver si se invalidó o no
-            .0
+            
             return invalidado;
         }
 
@@ -927,6 +928,9 @@ namespace Arqui_Simulacion
         {
             int bloque;
             int dato;
+
+            bool enCache;
+
 
             switch (ins[0])
             {
@@ -991,10 +995,14 @@ namespace Arqui_Simulacion
                     break;
                     
                 case 35: //LW
-                    bool enCache;
+                   
+
 
                      bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                      dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+                    
+
                     enCache = buscarEnCacheDatos1(bloque);
                     if (!enCache)
                     {
@@ -1068,7 +1076,18 @@ namespace Arqui_Simulacion
                     break;
 
                 case 50: //LL
+                    
 
+                    bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    enCache = buscarEnCacheDatos1(bloque);
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                    }
+
+                    registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
+                    registro_nucleo1[32] = registro_nucleo1[ins[1]] + ins[3];
 
                     break;
 
