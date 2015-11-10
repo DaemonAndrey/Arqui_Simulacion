@@ -895,9 +895,39 @@ namespace Arqui_Simulacion
             cache_datos_nucleo1[indice, 5] = -1;
         }
 
+        private bool invalidarBloqueNucleo1(int bloque)
+        {
+            bool invalidado = false;
+            //Reservar bus
+            if (Monitor.TryEnter(busDatos))
+            {
+                try
+                {
+                    // TODO: Poner mensaje para invalidación
+
+                    //Esperar un ciclo para que se haga efectiva la invalidación
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                    invalidado = true;
+                }
+
+                finally
+                {
+                    //Liberar bus
+                    Monitor.Exit(busDatos);
+                }
+            }
+
+            //Devolver si se invalidó o no
+            .0
+            return invalidado;
+        }
 
         private void ejecutarInstruccion1(ref int[] ins, int numHilo)
         {
+            int bloque;
+            int dato;
+
             switch (ins[0])
             {
                 case 8: //ADDI
@@ -963,8 +993,8 @@ namespace Arqui_Simulacion
                 case 35: //LW
                     bool enCache;
 
-                    int bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
-                    int dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     enCache = buscarEnCacheDatos1(bloque);
                     if (!enCache)
                     {
@@ -976,6 +1006,63 @@ namespace Arqui_Simulacion
                     break;
 
                 case 43: //SW
+                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                     buscarEnCacheDatos1(bloque);
+
+                     if (!buscarEnCacheDatos1(bloque))
+                     {
+                         resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                     }
+                     
+                     
+                     int indiceBloque = bloque % 8;
+                     bool bloqueInvalidado = false;
+
+
+                     while (!bloqueInvalidado)
+                     {
+                         //Reservar caché propia
+                         if (Monitor.TryEnter(cache_datos_nucleo1))
+                         {
+                             try
+                             {
+                                 //Si el bloque está compartido hay que invalidarlo
+                                 if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                 {
+                                     bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                 }
+
+                                 //Si no, no hay que invalidar y se puede hacer el store
+                                 else
+                                 {
+                                     bloqueInvalidado = true;
+                                 }
+
+                                 if (bloqueInvalidado)
+                                 {
+                                     cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                 }
+
+                             }
+                             finally
+                             {
+                                 //Liberar caché propia
+                                 Monitor.Exit(cache_datos_nucleo1);
+                             }
+                         }
+
+                         if (!bloqueInvalidado)
+                         {
+                             //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                             bandera_nucleo1_controlador.Set();
+                             bandera_controlador_nucleo1.WaitOne();
+                         }
+                     }
+
+
+
+                     
 
 
                     break;

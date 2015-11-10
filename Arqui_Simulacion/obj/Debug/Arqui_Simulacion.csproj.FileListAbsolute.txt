@@ -98,3 +98,7 @@ C:\Users\b33799\Documents\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simu
 C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.config
 C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe
 C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.pdb
+C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csprojResolveAssemblyReference.cache
+C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Form1.resources
+C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Properties.Resources.resources
+C:\Users\b25076\Desktop\Arqui\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
