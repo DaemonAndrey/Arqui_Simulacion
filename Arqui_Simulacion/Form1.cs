@@ -15,9 +15,6 @@ namespace Arqui_Simulacion
     public partial class Form1 : Form
     {
 
-        private int[] RAMInstrucciones;
-        private int[] RAMDatos;
-
 
         private int[] registro_nucleo1;
         private int[] registro_nucleo2;
@@ -70,13 +67,21 @@ namespace Arqui_Simulacion
         private AutoResetEvent bandera_agregar_registros; //Semáforo para controlar la escritura de los núcleos
 
         private ArrayList bus; //Bus de instrucciones
-        private ArrayList busDatos;
 
         private Queue<int> robin; //Cola de round robin
 
         private string textoInterfaz;
 
         private string textoFinal;
+
+/****************************************VARIABLES DE LA SEGUNDA ETAPA******************************************/
+
+        private int[] RAMInstrucciones;
+        private int[] RAMDatos;
+        private ArrayList busDatos;
+        private int etiquetaBloqueNucleo1, etiquetaBloqueNucleo2;
+
+        private bool invalidarNucleo1, invalidarNucleo2;
 
         public Form1()
         {
@@ -141,7 +146,10 @@ namespace Arqui_Simulacion
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
 
+            invalidarNucleo1 = invalidarNucleo2 = false; //Variables para indicarle al controlador si uno de los 
+            //núcleos necesita invalidar algo.
 
+            etiquetaBloqueNucleo1 = etiquetaBloqueNucleo1 = -1; //Etiqueta del bloque que se invalidará en caso de.
 
             hilo_a_ejecutar = new int[2];
 
@@ -185,16 +193,26 @@ namespace Arqui_Simulacion
 
         public void controlador()
         {
+
+            if(invalidarNucleo1)
+            {
+                if(cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8,4] == etiquetaBloqueNucleo1)
+                {
+                    cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1;
+                }
+            }
+            else if(invalidarNucleo2)
+            {
+                //MANDA A INVALIDAR etiquetaBloqueNucleo2
+            }
+
+
             //Agregamos los hilos al round robin
             for (int i = 0; i < numHilos; ++i )
             {
                 robin.Enqueue(i);
             }
             
-
-
-
-
 
             //Creamos e inicializamos los hilos de los núcleos
             Thread nucleo1 = new Thread(new ThreadStart(nucleo_1)); 
@@ -933,7 +951,8 @@ namespace Arqui_Simulacion
             {
                 try
                 {
-                    // TODO: Poner mensaje para invalidación
+                    invalidarNucleo1 = true;
+                    etiquetaBloqueNucleo1 = bloque;
 
                     //Esperar un ciclo para que se haga efectiva la invalidación
                     bandera_nucleo1_controlador.Set();
