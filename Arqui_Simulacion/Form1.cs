@@ -82,6 +82,7 @@ namespace Arqui_Simulacion
         private bool invalidarNucleo1, invalidarNucleo2;
         private int[,] cache_datos_nucleo1;
         private int[,] cache_datos_nucleo2;
+        private int bloqueCandadoActivoNucleo1, bloqueCandadoActivoNucleo2;
 
         public Form1()
         {
@@ -182,6 +183,9 @@ namespace Arqui_Simulacion
             //El true permita que la primera vez que hace wait, siga adelante
             bandera_agregar_registros = new AutoResetEvent(true);
 
+            bloqueCandadoActivoNucleo1 = -1;
+            bloqueCandadoActivoNucleo2 = -1;
+
         }
 
 
@@ -191,20 +195,7 @@ namespace Arqui_Simulacion
         public void controlador()
         {
 
-            if(invalidarNucleo1) //En caso de invalidación 
-            {
-                if(cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8,4] == etiquetaBloqueNucleo1)
-                {
-                    cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1;
-                }
-            }
-            else if(invalidarNucleo2)
-            {
-                if(cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8,4] == etiquetaBloqueNucleo2)
-                {
-                    cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = etiquetaBloqueNucleo1;
-                }
-            }
+            
 
 
             //Agregamos los hilos al round robin
@@ -232,6 +223,29 @@ namespace Arqui_Simulacion
             while(!finPrograma)
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
+
+                 if (invalidarNucleo1) //En caso de invalidación 
+                 {
+                     if (cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 4] == etiquetaBloqueNucleo1)
+                     {
+                         cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1;
+                         if (bloqueCandadoActivoNucleo2 == etiquetaBloqueNucleo1)
+                         {
+                             registro_nucleo2[32] = -1;
+                         }
+                     }
+                 }
+                 else if (invalidarNucleo2)
+                 {
+                     if (cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 4] == etiquetaBloqueNucleo2)
+                     {
+                         cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = -1;
+                         if (bloqueCandadoActivoNucleo1 == etiquetaBloqueNucleo2)
+                         {
+                             registro_nucleo1[32] = -1;
+                         }
+                     }
+                 }
 
                 //Si se vencio el quantum, el hilo terminó y el núcleo continúa activo es hora de asignar otro hilo
                  if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
@@ -354,7 +368,7 @@ namespace Arqui_Simulacion
                     }
 
                     PC1 = PCB[numHilo1, 32]; //Recuperamos el contexto
-                    registro_nucleo1[32] = PCB[numHilo1, 33]; //Recuperar RL
+                    
 
                     while ( (quantum1 != 0) && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
                     {
@@ -439,7 +453,7 @@ namespace Arqui_Simulacion
                                 PCB[numHilo1, k] = registro_nucleo1[k];
                             }
                             PCB[numHilo1, 32] = PC1; //Guardar PC
-                            PCB[numHilo1, 33] = registro_nucleo1[32]; //Guardar RL
+                            
 
                             robin.Enqueue(numHilo1); //Si el hilo aún no se ha terminado de ejecutar,
                                                      //lo volvemos a encolar para calendarizarlo
@@ -500,7 +514,7 @@ namespace Arqui_Simulacion
                     registro_nucleo2[i] = PCB[numHilo2, i];
                 }
                 PC2 = PCB[numHilo2, 32]; //Recuperar PC
-                registro_nucleo2[32] = PCB[numHilo2, 33]; //Recuperar RL
+                
 
                 while ((quantum2 != 0) && !fin_hilos[numHilo2])    //mientras tenga quantum y no haya terminado el hilo
                 {
@@ -581,7 +595,7 @@ namespace Arqui_Simulacion
 
                         }
                         PCB[numHilo2, 32] = PC2; //Guardar PC
-                        PCB[numHilo2, 33] = registro_nucleo2[32]; //Guardar RL
+                        
 
                         robin.Enqueue(numHilo2); // Si aún no ha terminado,
                         //lo volvemos a calendarizar para volverlo a calendarizar
@@ -648,6 +662,7 @@ namespace Arqui_Simulacion
 
             foreach (String file in archivador.FileNames)
             {
+                MessageBox.Show(file);
                 ++contador;
 
                 PCB[contador, 32] = puntero; //Agregamos a la lista de Round Robin el id del hilo
@@ -691,7 +706,7 @@ namespace Arqui_Simulacion
             if ((textBox1.Text != "") && (textBox2.Text != "") && (textBox3.Text != "") && (textBox4.Text != ""))
             {
                 numHilos = int.Parse(textBox1.Text);
-                PCB = new int[numHilos, 34]; //Inicializamos el PCB (Process Control Block)
+                PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
                 fin_hilos = new bool[numHilos];
 
                 quantum = int.Parse(textBox4.Text);
@@ -732,7 +747,7 @@ namespace Arqui_Simulacion
             }
 
             textoFinal += "El contenido de la memoria RAM es: \n\n";
-            for (int i = 0; i < 2048; ++i )
+            for (int i = 0; i < 640; ++i )
             {
                 textoFinal += RAMInstrucciones[i]+ ", ";
             }
@@ -859,6 +874,7 @@ namespace Arqui_Simulacion
                                 {
                                     try
                                     {
+                                        tengoBus = true;
                                         //Buscar bloque en la otra caché
                                         int i = 0;
                                         while (i < 8 && !encontradoEnOtraCache)
@@ -897,7 +913,7 @@ namespace Arqui_Simulacion
                                 }
 
                                 //Si el bloque nuevo no está en la otra caché o no está modificado
-                                if (traerDeMemoria)
+                                if (traerDeMemoria && tengoBus)
                                 {
                                     WriteBackNucleo1(true, bloque, bloque % 8);
                                 }
@@ -917,7 +933,7 @@ namespace Arqui_Simulacion
                         Monitor.Exit(cache_datos_nucleo1);
                     }
                 }
-                else
+                if (!tengoBus)
                 {
                     bandera_nucleo1_controlador.Set();
                     bandera_controlador_nucleo1.WaitOne();
@@ -953,6 +969,7 @@ namespace Arqui_Simulacion
                                 {
                                     try
                                     {
+                                        tengoBus = true;
                                         //Buscar bloque en la otra caché
                                         int i = 0;
                                         while (i < 8 && !encontradoEnOtraCache)
@@ -991,7 +1008,7 @@ namespace Arqui_Simulacion
                                 }
 
                                 //Si el bloque nuevo no está en la otra caché o no está modificado
-                                if (traerDeMemoria)
+                                if (traerDeMemoria && tengoBus)
                                 {
                                     WriteBackNucleo2(true, bloque, bloque % 8);
                                 }
@@ -1011,7 +1028,7 @@ namespace Arqui_Simulacion
                         Monitor.Exit(cache_datos_nucleo2);
                     }
                 }
-                else
+                if (!tengoBus)
                 {
                     bandera_nucleo2_controlador.Set();
                     bandera_controlador_nucleo2.WaitOne();
@@ -1031,7 +1048,7 @@ namespace Arqui_Simulacion
             if (cache_datos_nucleo1[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo1[indice, 4];
-                int direccion = bloqueViejo * 4;
+                int direccion = (bloqueViejo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
                     RAMDatos[direccion + i] = cache_datos_nucleo1[indice, i];
@@ -1048,7 +1065,7 @@ namespace Arqui_Simulacion
             //Traer bloque nuevo de memoria
             if (memoria)
             {
-                int direccion = bloqueNuevo * 4;
+                int direccion = (bloqueNuevo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
                     cache_datos_nucleo1[indice, i] = RAMDatos[direccion + i];
@@ -1085,7 +1102,7 @@ namespace Arqui_Simulacion
             if (cache_datos_nucleo2[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo2[indice, 4];
-                int direccion = bloqueViejo * 4;
+                int direccion = (bloqueViejo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
                     RAMDatos[direccion + i] = cache_datos_nucleo2[indice, i];
@@ -1102,7 +1119,7 @@ namespace Arqui_Simulacion
             //Traer bloque nuevo de memoria
             if (memoria)
             {
-                int direccion = bloqueNuevo * 4;
+                int direccion = (bloqueNuevo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
                     cache_datos_nucleo2[indice, i] = RAMDatos[direccion + i];
@@ -1291,7 +1308,7 @@ namespace Arqui_Simulacion
                 case 43: //SW
                      bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                      dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                     buscarEnCacheDatos1(bloque);
+                     
 
                      if (!buscarEnCacheDatos1(bloque))
                      {
@@ -1363,6 +1380,7 @@ namespace Arqui_Simulacion
 
                     registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
                     registro_nucleo1[32] = registro_nucleo1[ins[1]] + ins[3];
+                    bloqueCandadoActivoNucleo1 = bloque;
 
                     break;
 
@@ -1407,6 +1425,7 @@ namespace Arqui_Simulacion
                                     if (bloqueInvalidado)
                                     {
                                         cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                        bloqueCandadoActivoNucleo1 = -1;
                                     }
 
                                 }
@@ -1503,7 +1522,86 @@ namespace Arqui_Simulacion
                     break;
 
 
+                case 35: //LW
 
+
+
+                    bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+
+
+                    enCache = buscarEnCacheDatos2(bloque);
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                    }
+
+                    registro_nucleo2[ins[2]] = cache_datos_nucleo2[bloque % 8, dato];
+
+                    break;
+
+                case 43: //SW
+                    bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    
+
+                    if (!buscarEnCacheDatos2(bloque))
+                    {
+                        resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                    }
+
+
+                    indiceBloque = bloque % 8;
+                    bloqueInvalidado = false;
+
+
+                    while (!bloqueInvalidado)
+                    {
+                        //Reservar caché propia
+                        if (Monitor.TryEnter(cache_datos_nucleo2))
+                        {
+                            try
+                            {
+                                //Si el bloque está compartido hay que invalidarlo
+                                if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                {
+                                    bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                }
+
+                                //Si no, no hay que invalidar y se puede hacer el store
+                                else
+                                {
+                                    bloqueInvalidado = true;
+                                }
+
+                                if (bloqueInvalidado)
+                                {
+                                    cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                }
+
+                            }
+                            finally
+                            {
+                                //Liberar caché propia
+                                Monitor.Exit(cache_datos_nucleo2);
+                            }
+                        }
+
+                        if (!bloqueInvalidado)
+                        {
+                            //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                            bandera_nucleo2_controlador.Set();
+                            bandera_controlador_nucleo2.WaitOne();
+                        }
+                    }
+
+
+
+
+
+
+                    break;
 
 
                 case 50: //LL
@@ -1563,6 +1661,7 @@ namespace Arqui_Simulacion
                                     if (bloqueInvalidado)
                                     {
                                         cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                        bloqueCandadoActivoNucleo2 = -1;
                                     }
 
                                 }
