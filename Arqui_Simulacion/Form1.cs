@@ -1391,7 +1391,7 @@ namespace Arqui_Simulacion
 
                         bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                        buscarEnCacheDatos1(bloque);
+                        
 
                         if (!buscarEnCacheDatos1(bloque))
                         {
@@ -1627,7 +1627,7 @@ namespace Arqui_Simulacion
 
                         bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                        buscarEnCacheDatos2(bloque);
+                        
 
                         if (!buscarEnCacheDatos2(bloque))
                         {
