@@ -147,7 +147,7 @@ namespace Arqui_Simulacion
             invalidarNucleo1 = invalidarNucleo2 = false; //Variables para indicarle al controlador si uno de los 
             //núcleos necesita invalidar algo.
 
-            etiquetaBloqueNucleo1 = etiquetaBloqueNucleo1 = -1; //Etiqueta del bloque que se invalidará en caso de.
+            etiquetaBloqueNucleo1 = etiquetaBloqueNucleo2 = -1; //Etiqueta del bloque que se invalidará en caso de.
 
             hilo_a_ejecutar = new int[2];
 
@@ -226,25 +226,35 @@ namespace Arqui_Simulacion
 
                  if (invalidarNucleo1) //En caso de invalidación 
                  {
+                     MessageBox.Show("Invalidacion en cache 2");
                      if (cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 4] == etiquetaBloqueNucleo1)
                      {
                          cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1;
+                         MessageBox.Show("Etiqueta "+etiquetaBloqueNucleo1);
+                         MessageBox.Show("Bloque bandera "+bloqueCandadoActivoNucleo2);
                          if (bloqueCandadoActivoNucleo2 == etiquetaBloqueNucleo1)
                          {
+                             MessageBox.Show("RL 2 = -1");
                              registro_nucleo2[32] = -1;
                          }
                      }
+                     invalidarNucleo1 = false;
                  }
                  else if (invalidarNucleo2)
                  {
+                     MessageBox.Show("Invalidacion en cache 1");
                      if (cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 4] == etiquetaBloqueNucleo2)
                      {
                          cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = -1;
+                         MessageBox.Show("Etiqueta " + etiquetaBloqueNucleo2);
+                         MessageBox.Show("Bloque bandera " + bloqueCandadoActivoNucleo1);
                          if (bloqueCandadoActivoNucleo1 == etiquetaBloqueNucleo2)
                          {
+                             MessageBox.Show("RL 1 = -1");
                              registro_nucleo1[32] = -1;
                          }
                      }
+                     invalidarNucleo2 = false;
                  }
 
                 //Si se vencio el quantum, el hilo terminó y el núcleo continúa activo es hora de asignar otro hilo
@@ -1368,8 +1378,8 @@ namespace Arqui_Simulacion
                     break;
 
                 case 50: //LL
-                    
 
+                    MessageBox.Show("Entrando LL N1");
                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     enCache = buscarEnCacheDatos1(bloque);
@@ -1381,14 +1391,15 @@ namespace Arqui_Simulacion
                     registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
                     registro_nucleo1[32] = registro_nucleo1[ins[1]] + ins[3];
                     bloqueCandadoActivoNucleo1 = bloque;
+                    MessageBox.Show("Saliendo LL N1");
 
                     break;
 
                 case 51: //SC
-
+                    MessageBox.Show("Entrando SC N1");
                     if (registro_nucleo1[32] == registro_nucleo1[ins[1]] + ins[3])
                     {
-
+                        MessageBox.Show("RL N1 Bien");
                         bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                         
@@ -1446,8 +1457,10 @@ namespace Arqui_Simulacion
                     }
                     else
                     {
+                        MessageBox.Show("RL N1 Mal");
                         registro_nucleo1[ins[2]] = 0;
                     }
+                    MessageBox.Show("Saliendo SC N1");
                     break;
             }
         }
@@ -1606,7 +1619,7 @@ namespace Arqui_Simulacion
 
                 case 50: //LL
 
-
+                    MessageBox.Show("Entrando LL N2");
                     bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     enCache = buscarEnCacheDatos2(bloque);
@@ -1617,14 +1630,15 @@ namespace Arqui_Simulacion
 
                     registro_nucleo2[ins[2]] = cache_datos_nucleo2[bloque % 8, dato];
                     registro_nucleo2[32] = registro_nucleo2[ins[1]] + ins[3];
-
+                    bloqueCandadoActivoNucleo2 = bloque;
+                    MessageBox.Show("Saliendo LL N2");
                     break;
 
                 case 51: //SC
-
+                    MessageBox.Show("Entrando SC N2");
                     if (registro_nucleo2[32] == registro_nucleo2[ins[1]] + ins[3])
                     {
-
+                        MessageBox.Show("RL N2 Bien");
                         bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                         
@@ -1682,8 +1696,10 @@ namespace Arqui_Simulacion
                     }
                     else
                     {
+                        MessageBox.Show("RL N2 Mal");
                         registro_nucleo2[ins[2]] = 0;
                     }
+                    MessageBox.Show("Saliendo SC N2");
                     break;
 
 

@@ -42,14 +42,14 @@
     </dependentAssembly>
   </dependency>
   <dependency>
-    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="Arqui_Simulacion.exe" size="25088">
+    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="Arqui_Simulacion.exe" size="26112">
       <assemblyIdentity name="Arqui_Simulacion" version="1.0.0.0" language="neutral" processorArchitecture="msil" />
       <hash>
         <dsig:Transforms>
           <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
         </dsig:Transforms>
         <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-        <dsig:DigestValue>Xa3jNfKfbpsDDi82UkSiw9WKKwIGL9UhtWs1gg4aa4w=</dsig:DigestValue>
+        <dsig:DigestValue>Sg/4nsywOx4RvC/6Ge9pA8XdhuKkK+v/4fXWzCVTFUs=</dsig:DigestValue>
       </hash>
     </dependentAssembly>
   </dependency>
