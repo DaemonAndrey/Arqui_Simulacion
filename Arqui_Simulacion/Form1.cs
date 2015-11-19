@@ -100,7 +100,7 @@ namespace Arqui_Simulacion
 
             finPrograma = false; //bandera para finalizar el programa
             nucleo1Activo = true;
-            nucleo2Activo = false;
+            nucleo2Activo = true;
 
 
             RAMInstrucciones = new int[640];
@@ -255,6 +255,10 @@ namespace Arqui_Simulacion
                      invalidarNucleo2 = false;
                  }
 
+                 if (fin_hilos[hilo_a_ejecutar[0]] || fin_hilos[hilo_a_ejecutar[1]])
+                 {
+                     int i = 0;
+                 }
                 //Si se vencio el quantum, el hilo terminó y el núcleo continúa activo es hora de asignar otro hilo
                  if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
                  {
@@ -273,7 +277,18 @@ namespace Arqui_Simulacion
                      {
                          nucleo1Activo = false;
 
+                         for (int i = 0; i < 8; ++i )
+                         {
+                             if(cache_datos_nucleo1[i,5] == 1)
+                             {
+                                 int memo = (cache_datos_nucleo1[i, 4] - 40) * 4;
 
+                                 for (int j = 0; j < 4; ++j, ++memo )
+                                 {
+                                     RAMDatos[memo] = cache_datos_nucleo1[i, j];
+                                 }
+                             }
+                         }
                          if (!nucleo2Activo)
                          {
                              finPrograma = true; //Si ya los dos núcleos están inactivos, terminó la simulación
@@ -298,6 +313,20 @@ namespace Arqui_Simulacion
                      else
                      {
                          nucleo2Activo = false;
+
+                         for (int i = 0; i < 8; ++i)
+                         {
+                             if (cache_datos_nucleo2[i, 5] == 1)
+                             {
+                                 int memo = (cache_datos_nucleo2[i, 4] - 40) * 4;
+
+                                 for (int j = 0; j < 4; ++j, ++memo)
+                                 {
+                                     RAMDatos[memo] = cache_datos_nucleo2[i, j];
+                                 }
+                             }
+                         }
+
 
                          if (!nucleo1Activo)
                          {
@@ -450,7 +479,14 @@ namespace Arqui_Simulacion
                         }
                         
                         PC1 += 4; 
+
+                        if(numHilo1 == 3)
+                        {
+                            int i = 0;
+                        }
+
                         ejecutarInstruccion1(ref instruccion, numHilo1); // mandamos a ejecutar la instrucción
+
 
                         quantum1--;
 
@@ -592,6 +628,11 @@ namespace Arqui_Simulacion
                     }
                     
                     PC2 += 4;
+
+                    if (numHilo2 == 3)
+                    {
+                        int i = 0;
+                    }
                     ejecutarInstruccion2(ref instruccion, numHilo2);
                     quantum2--;
 
@@ -861,7 +902,7 @@ namespace Arqui_Simulacion
         {
             //Calcular número de bloque
             int bloque = (int)(Math.Floor((float)direccion / 16));
-            int numDato = direccion % 4;
+
             bool tengoBus = false;
             bool encontradoEnOtraCache = false;
             bool traerDeMemoria = true;
@@ -956,7 +997,7 @@ namespace Arqui_Simulacion
         {
             //Calcular número de bloque
             int bloque = (int)(Math.Floor((float)direccion / 16));
-            int numDato = direccion % 4;
+
             bool tengoBus = false;
             bool encontradoEnOtraCache = false;
             bool traerDeMemoria = true;
@@ -1593,6 +1634,7 @@ namespace Arqui_Simulacion
                                 if (bloqueInvalidado)
                                 {
                                     cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                    cache_datos_nucleo2[indiceBloque, 5] = 1;
                                 }
 
                             }
@@ -1678,6 +1720,7 @@ namespace Arqui_Simulacion
                                     {
                                         cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
                                         bloqueCandadoActivoNucleo2 = -1;
+                                        cache_datos_nucleo2[indiceBloque, 5] = 1;
                                     }
 
                                 }
