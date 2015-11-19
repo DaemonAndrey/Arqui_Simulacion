@@ -125,3 +125,16 @@ C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arq
 C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
 C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
 C:\Users\b33799\Documents\GitHub\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.config
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.pdb
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.application
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.pdb
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csprojResolveAssemblyReference.cache
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Form1.resources
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Properties.Resources.resources
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\b25076\Desktop\Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application
