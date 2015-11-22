@@ -226,6 +226,10 @@ namespace Arqui_Simulacion
 
                  if (invalidarNucleo1) //En caso de invalidación 
                  {
+                     if (etiquetaBloqueNucleo1 == 124)
+                     {
+                         int i = 0;
+                     }
 
                      if (cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 4] == etiquetaBloqueNucleo1)
                      {
@@ -241,6 +245,10 @@ namespace Arqui_Simulacion
                  }
                  else if (invalidarNucleo2)
                  {
+                     if (etiquetaBloqueNucleo1 == 124)
+                     {
+                         int i = 0;
+                     }
       
                      if (cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 4] == etiquetaBloqueNucleo2)
                      {
@@ -480,7 +488,7 @@ namespace Arqui_Simulacion
                         
                         PC1 += 4; 
 
-                        if(numHilo1 == 6 || numHilo1 == 5)
+                        if(numHilo1 == 3 || numHilo1 == 3)
                         {
                             int i = 0;
                         }
@@ -629,7 +637,7 @@ namespace Arqui_Simulacion
                     
                     PC2 += 4;
 
-                    if (numHilo2 == 6 || numHilo2 == 5)
+                    if (numHilo2 == 3 || numHilo2 == 3)
                     {
                         int i = 0;
                     }
@@ -1093,14 +1101,18 @@ namespace Arqui_Simulacion
          **/
         private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
         {
-            //Si el bloque viejo está modificado, devolverlo a memoria
-            if(bloqueNuevo == 49)
+            if (bloqueNuevo == 124)
             {
                 int i = 0;
             }
+            //Si el bloque viejo está modificado, devolverlo a memoria
             if (cache_datos_nucleo1[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo1[indice, 4];
+                if (bloqueViejo == 124)
+                {
+                    int i = 0;
+                }
                 int direccion = (bloqueViejo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
@@ -1151,7 +1163,7 @@ namespace Arqui_Simulacion
          **/
         private void WriteBackNucleo2(bool memoria, int bloqueNuevo, int indice)
         {
-            if (bloqueNuevo == 49)
+            if (bloqueNuevo == 124)
             {
                 int i = 0;
             }
@@ -1159,6 +1171,10 @@ namespace Arqui_Simulacion
             if (cache_datos_nucleo2[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo2[indice, 4];
+                if (bloqueViejo == 124)
+                {
+                    int i = 0;
+                }
                 int direccion = (bloqueViejo - 40) * 4;
                 for (int i = 0; i < 4; i++)
                 {
@@ -1363,6 +1379,7 @@ namespace Arqui_Simulacion
                     break;
 
                 case 43: //SW
+
                      bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                      dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                      
@@ -1373,49 +1390,61 @@ namespace Arqui_Simulacion
                      }
                      
                      
+                     
                      indiceBloque = bloque % 8;
                       bloqueInvalidado = false;
 
 
                      while (!bloqueInvalidado)
                      {
-                         //Reservar caché propia
-                         if (Monitor.TryEnter(cache_datos_nucleo1))
+
+                         if (cache_datos_nucleo1[indiceBloque, 5] == -1)
                          {
-                             try
+                             PC1 -= 4;
+                             bloqueInvalidado = true;
+                         }
+                         else
+                         {
+                             //Reservar caché propia
+                             if (Monitor.TryEnter(cache_datos_nucleo1))
                              {
-                                 //Si el bloque está compartido hay que invalidarlo
-                                 if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                 try
                                  {
-                                     bloqueInvalidado = invalidarBloqueNucleo1(bloque);
-                                 }
+                                     //Si el bloque está compartido hay que invalidarlo
+                                     if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                     {
+                                         bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                     }
 
-                                 //Si no, no hay que invalidar y se puede hacer el store
-                                 else
+                                     //Si no, no hay que invalidar y se puede hacer el store
+                                     else
+                                     {
+                                         bloqueInvalidado = true;
+                                     }
+
+                                     if (bloqueInvalidado)
+                                     {
+                                         cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                         cache_datos_nucleo1[indiceBloque, 5] = 1;
+                                     }
+
+                                 }
+                                 finally
                                  {
-                                     bloqueInvalidado = true;
+                                     //Liberar caché propia
+                                     Monitor.Exit(cache_datos_nucleo1);
                                  }
-
-                                 if (bloqueInvalidado)
-                                 {
-                                     cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
-                                     cache_datos_nucleo1[indiceBloque, 5] = 1;
-                                 }
-
                              }
-                             finally
+
+                             if (!bloqueInvalidado)
                              {
-                                 //Liberar caché propia
-                                 Monitor.Exit(cache_datos_nucleo1);
+                                 //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                 bandera_nucleo1_controlador.Set();
+                                 bandera_controlador_nucleo1.WaitOne();
                              }
                          }
 
-                         if (!bloqueInvalidado)
-                         {
-                             //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
-                             bandera_nucleo1_controlador.Set();
-                             bandera_controlador_nucleo1.WaitOne();
-                         }
+
                      }
 
 
@@ -1464,45 +1493,57 @@ namespace Arqui_Simulacion
 
                         while (!bloqueInvalidado)
                         {
-                            //Reservar caché propia
-                            if (Monitor.TryEnter(cache_datos_nucleo1))
+                            if (cache_datos_nucleo1[indiceBloque, 5] == -1)
                             {
-                                try
+                                //resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                                PC1 -= 4;
+                                bloqueInvalidado = true;
+                            }
+                            else
+                            {
+                                //Reservar caché propia
+                                if (Monitor.TryEnter(cache_datos_nucleo1))
                                 {
-                                    //Si el bloque está compartido hay que invalidarlo
-                                    if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                    try
                                     {
-                                        bloqueInvalidado = invalidarBloqueNucleo1(bloque);
-                                    }
+                                        //Si el bloque está compartido hay que invalidarlo
+                                        if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                        {
+                                            bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                        }
 
-                                     //Si no, no hay que invalidar y se puede hacer el store
-                                    else
+                                         //Si no, no hay que invalidar y se puede hacer el store
+                                        else
+                                        {
+                                            bloqueInvalidado = true;
+                                        }
+
+                                        if (bloqueInvalidado)
+                                        {
+                                            cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                            bloqueCandadoActivoNucleo1 = -1;
+                                            cache_datos_nucleo1[indiceBloque, 5] = 1;
+
+                                        }
+
+                                    }
+                                    finally
                                     {
-                                        bloqueInvalidado = true;
+                                        //Liberar caché propia
+                                        Monitor.Exit(cache_datos_nucleo1);
                                     }
-
-                                    if (bloqueInvalidado)
-                                    {
-                                        cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
-                                        bloqueCandadoActivoNucleo1 = -1;
-                                        cache_datos_nucleo1[indiceBloque, 5] = 1;
-
-                                    }
-
                                 }
-                                finally
+
+
+                                if (!bloqueInvalidado)
                                 {
-                                    //Liberar caché propia
-                                    Monitor.Exit(cache_datos_nucleo1);
+                                    //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                    bandera_nucleo1_controlador.Set();
+                                    bandera_controlador_nucleo1.WaitOne();
                                 }
                             }
 
-                            if (!bloqueInvalidado)
-                            {
-                                //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
-                                bandera_nucleo1_controlador.Set();
-                                bandera_controlador_nucleo1.WaitOne();
-                            }
+                           
                         }
                     }
                     else
@@ -1606,6 +1647,7 @@ namespace Arqui_Simulacion
                     break;
 
                 case 43: //SW
+
                     bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     
@@ -1622,43 +1664,55 @@ namespace Arqui_Simulacion
 
                     while (!bloqueInvalidado)
                     {
-                        //Reservar caché propia
-                        if (Monitor.TryEnter(cache_datos_nucleo2))
+
+                        if (cache_datos_nucleo2[indiceBloque, 5] == -1)
                         {
-                            try
+                            //resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                            PC2 -= 4;
+                            bloqueInvalidado = true;
+                        }
+                        else
+                        {
+                            //Reservar caché propia
+                            if (Monitor.TryEnter(cache_datos_nucleo2))
                             {
-                                //Si el bloque está compartido hay que invalidarlo
-                                if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                try
                                 {
-                                    bloqueInvalidado = invalidarBloqueNucleo2(bloque);
-                                }
+                                    //Si el bloque está compartido hay que invalidarlo
+                                    if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                    {
+                                        bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                    }
 
-                                //Si no, no hay que invalidar y se puede hacer el store
-                                else
+                                    //Si no, no hay que invalidar y se puede hacer el store
+                                    else
+                                    {
+                                        bloqueInvalidado = true;
+                                    }
+
+                                    if (bloqueInvalidado)
+                                    {
+                                        cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                        cache_datos_nucleo2[indiceBloque, 5] = 1;
+                                    }
+
+                                }
+                                finally
                                 {
-                                    bloqueInvalidado = true;
+                                    //Liberar caché propia
+                                    Monitor.Exit(cache_datos_nucleo2);
                                 }
-
-                                if (bloqueInvalidado)
-                                {
-                                    cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
-                                    cache_datos_nucleo2[indiceBloque, 5] = 1;
-                                }
-
                             }
-                            finally
+
+                            if (!bloqueInvalidado)
                             {
-                                //Liberar caché propia
-                                Monitor.Exit(cache_datos_nucleo2);
+                                //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                bandera_nucleo2_controlador.Set();
+                                bandera_controlador_nucleo2.WaitOne();
                             }
                         }
 
-                        if (!bloqueInvalidado)
-                        {
-                            //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
-                            bandera_nucleo2_controlador.Set();
-                            bandera_controlador_nucleo2.WaitOne();
-                        }
+
                     }
 
 
@@ -1713,7 +1767,15 @@ namespace Arqui_Simulacion
 
                         while (!bloqueInvalidado)
                         {
-                            //Reservar caché propia
+                            if (cache_datos_nucleo2[indiceBloque, 5] == -1)
+                            {
+                                //resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                                PC2 -= 4;
+                                bloqueInvalidado = true;
+                            }
+                            else
+                            {
+                                                            //Reservar caché propia
                             if (Monitor.TryEnter(cache_datos_nucleo2))
                             {
                                 try
@@ -1751,6 +1813,9 @@ namespace Arqui_Simulacion
                                 bandera_nucleo2_controlador.Set();
                                 bandera_controlador_nucleo2.WaitOne();
                             }
+                           }
+
+
                         }
                     }
                     else
