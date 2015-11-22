@@ -84,6 +84,8 @@ namespace Arqui_Simulacion
         private int[,] cache_datos_nucleo2;
         private int bloqueCandadoActivoNucleo1, bloqueCandadoActivoNucleo2;
 
+        private int[] cantidadCiclos;
+
         public Form1()
         {
             InitializeComponent();
@@ -102,7 +104,7 @@ namespace Arqui_Simulacion
             nucleo1Activo = true;
             nucleo2Activo = true;
 
-
+          
             RAMInstrucciones = new int[640];
             RAMDatos = new int[352];
 
@@ -345,22 +347,30 @@ namespace Arqui_Simulacion
 
                 textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
                     + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
-                    + hilo_a_ejecutar[1]+"\n";
+                    + hilo_a_ejecutar[1]+"\n\n";
 
-                textoInterfaz += "Los registros del núcleo 1 contienen: \n";
+                textoInterfaz += "La caché de datos del nucleo 1 es: \n";
 
                 
-                for (int i = 0; i < 32; ++i )
-                {
-                    textoInterfaz += registro_nucleo1[i] + ", ";
-                }
+               for(int i = 0; i < 8; ++i)
+               {
+                   for (int j = 0; j < 6; ++j )
+                   {
+                       textoInterfaz += cache_datos_nucleo1[i, j] + ", ";
+                   }
+               }
 
-                textoInterfaz += "\n Los registros del núcleo 2 contienen: \n";
 
-                for (int i = 0; i < 32; ++i)
-                {
-                    textoInterfaz += registro_nucleo2[i] + ", ";
-                }
+               textoInterfaz += "\n\nLa caché de datos del nucleo 2 es: \n";
+
+
+               for (int i = 0; i < 8; ++i)
+               {
+                   for (int j = 0; j < 6; ++j)
+                   {
+                       textoInterfaz += cache_datos_nucleo2[i, j] + ", ";
+                   }
+               }
                 
                 textoInterfaz += "\n" ;
 
@@ -452,6 +462,7 @@ namespace Arqui_Simulacion
                                             //Simulamos el tiempo de transferencia y escritura
                                             bandera_nucleo1_controlador.Set();
                                             bandera_controlador_nucleo1.WaitOne();
+                                            cantidadCiclos[numHilo1] += 1;
                                         }
 
 
@@ -468,6 +479,7 @@ namespace Arqui_Simulacion
                                     //Si el bus está ocupado, dejamos actualizar el reloj.
                                     bandera_nucleo1_controlador.Set();
                                     bandera_controlador_nucleo1.WaitOne();
+                                    cantidadCiclos[numHilo1] += 1;
                                 }
                             }
                             busOcupado = false;
@@ -508,6 +520,7 @@ namespace Arqui_Simulacion
                         {
                             bandera_nucleo1_controlador.Set();
                             bandera_controlador_nucleo1.WaitOne();
+                            cantidadCiclos[numHilo1] += 1;
                         }
                     }
 
@@ -598,6 +611,7 @@ namespace Arqui_Simulacion
                                     {
                                         bandera_nucleo2_controlador.Set();
                                         bandera_controlador_nucleo2.WaitOne();
+                                        cantidadCiclos[numHilo2] += 1;
                                     }
 
 
@@ -613,6 +627,7 @@ namespace Arqui_Simulacion
 
                                 bandera_nucleo2_controlador.Set();
                                 bandera_controlador_nucleo2.WaitOne();
+                                cantidadCiclos[numHilo2] += 1;
                                 
                             }
                         }
@@ -652,6 +667,7 @@ namespace Arqui_Simulacion
                     {
                         bandera_nucleo2_controlador.Set();
                         bandera_controlador_nucleo2.WaitOne();
+                        cantidadCiclos[numHilo2] += 1;
                     }
                 }
 
@@ -671,7 +687,7 @@ namespace Arqui_Simulacion
 
         private void radioButton1_CheckedChanged(object sender, EventArgs e)
         {
-            delay = 15;
+            delay = 400;
         }
 
         /**
@@ -753,6 +769,13 @@ namespace Arqui_Simulacion
                 PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
                 fin_hilos = new bool[numHilos];
 
+                cantidadCiclos = new int[numHilos];
+
+                for (int i = 0; i < numHilos; ++i )
+                {
+                    cantidadCiclos[i] = 0;
+                }
+
                 quantum = int.Parse(textBox4.Text);
 
                 tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
@@ -791,9 +814,9 @@ namespace Arqui_Simulacion
             }
 
             textoFinal += "El contenido de la memoria RAM es: \n\n";
-            for (int i = 0; i < 640; ++i )
+            for (int i = 0; i < 352; ++i )
             {
-                textoFinal += RAMInstrucciones[i]+ ", ";
+                textoFinal += RAMDatos[i]+ ", ";
             }
 
             richTextBox1.Clear();
@@ -814,10 +837,25 @@ namespace Arqui_Simulacion
             textoFinal += "Registros: \n";
             for (int i = 0; i < 32; ++i )
             {
-                textoFinal += "R" + i + " = " + registros[i]+"\n";
+                textoFinal += "R" + i + " = " + registros[i]+"\n\n";
             }
 
-            textoFinal += "\n\n";
+            textoFinal += "El RL es: " + registros[32]+"\n\n";
+
+            textoFinal += "El contenido de la caché de datos del hilo " + hilo + " es: \n";
+
+            int[,] cache = (nucleo == 1)?cache_datos_nucleo1:cache_datos_nucleo2;
+
+            for(int i = 0; i < 8; ++i)
+            {
+                for (int j = 0; j < 6; ++j )
+                {
+                    textoFinal += cache[i, j]+", ";
+                }
+            }
+
+            textoFinal += "\n\nLa cantidad de ciclos que consumí es: "+cantidadCiclos[hilo]+"\n\n";
+
 
             bandera_agregar_registros.Set();
         }
