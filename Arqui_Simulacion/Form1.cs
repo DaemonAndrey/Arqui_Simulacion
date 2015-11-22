@@ -480,7 +480,7 @@ namespace Arqui_Simulacion
                         
                         PC1 += 4; 
 
-                        if(numHilo1 == 3)
+                        if(numHilo1 == 6 || numHilo1 == 5)
                         {
                             int i = 0;
                         }
@@ -629,7 +629,7 @@ namespace Arqui_Simulacion
                     
                     PC2 += 4;
 
-                    if (numHilo2 == 3)
+                    if (numHilo2 == 6 || numHilo2 == 5)
                     {
                         int i = 0;
                     }
@@ -1094,6 +1094,10 @@ namespace Arqui_Simulacion
         private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
         {
             //Si el bloque viejo está modificado, devolverlo a memoria
+            if(bloqueNuevo == 49)
+            {
+                int i = 0;
+            }
             if (cache_datos_nucleo1[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo1[indice, 4];
@@ -1147,6 +1151,10 @@ namespace Arqui_Simulacion
          **/
         private void WriteBackNucleo2(bool memoria, int bloqueNuevo, int indice)
         {
+            if (bloqueNuevo == 49)
+            {
+                int i = 0;
+            }
             //Si el bloque viejo está modificado, devolverlo a memoria
             if (cache_datos_nucleo2[indice, 5] == 1)
             {
@@ -1665,6 +1673,12 @@ namespace Arqui_Simulacion
 
          
                     bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+
+                    if(bloque == 49)
+                    {
+                        int i = 0;
+                    }
+
                     dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     enCache = buscarEnCacheDatos2(bloque);
                     if (!enCache)
