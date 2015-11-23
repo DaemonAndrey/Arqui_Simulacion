@@ -77,12 +77,12 @@ namespace Arqui_Simulacion
         private int[] RAMInstrucciones;
         private int[] RAMDatos;
         private ArrayList busDatos;
-        private int etiquetaBloqueNucleo1, etiquetaBloqueNucleo2;
+        private int etiquetaBloqueNucleo1, etiquetaBloqueNucleo2; //variables usadas para indicar cuál bloque se va a invalidar
 
-        private bool invalidarNucleo1, invalidarNucleo2;
+        private bool invalidarNucleo1, invalidarNucleo2; //booleanos que indican si un núcleo requiere que se invalide un bloque 
         private int[,] cache_datos_nucleo1;
         private int[,] cache_datos_nucleo2;
-        private int bloqueCandadoActivoNucleo1, bloqueCandadoActivoNucleo2;
+        private int bloqueCandadoActivoNucleo1, bloqueCandadoActivoNucleo2; //indican el número de bloque del candado que está siendo utilizado en todo momento por un par de instrucciones LL y SC
 
         public Form1()
         {
@@ -224,35 +224,41 @@ namespace Arqui_Simulacion
             {
                  WaitHandle.WaitAll(banderas_nucleos_controlador);
 
-                 if (invalidarNucleo1) //En caso de invalidación 
-                 {
+                //A continuación se controla la invalidación de un bloque
 
+                 //En caso de invalidación pedida por parte del Núcleo1
+                 if (invalidarNucleo1) 
+                 {
+                     //Si el bloque que se quiere invalidar está en la caché 2
                      if (cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 4] == etiquetaBloqueNucleo1)
                      {
-                         cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1;
+                         cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1; //Invalidar el bloque
 
+                         //Si el bloque invalidado contenía un candado de LL y SC activo
                          if (bloqueCandadoActivoNucleo2 == etiquetaBloqueNucleo1)
                          {
-
-                             registro_nucleo2[32] = -1;
+                             registro_nucleo2[32] = -1; //Poner RL en -1
                          }
                      }
-                     invalidarNucleo1 = false;
+                     invalidarNucleo1 = false; //Reiniciar booleano
                  }
-                 else if (invalidarNucleo2)
+
+
+                 //En caso de invalidación pedida por parte del Núcleo2
+                 else if (invalidarNucleo2) 
                  {
-      
+                     //Si el bloque que se quiere invalidar está en la caché 1
                      if (cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 4] == etiquetaBloqueNucleo2)
                      {
-                         cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = -1;
+                         cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = -1; //Invalidar el bloque
 
+                         //Si el bloque invalidado contenía un candado de LL y SC activo
                          if (bloqueCandadoActivoNucleo1 == etiquetaBloqueNucleo2)
                          {
-    
-                             registro_nucleo1[32] = -1;
+                             registro_nucleo1[32] = -1; //Poner RL en -1
                          }
                      }
-                     invalidarNucleo2 = false;
+                     invalidarNucleo2 = false; //Reiniciar booleano
                  }
 
                  if (fin_hilos[hilo_a_ejecutar[0]] || fin_hilos[hilo_a_ejecutar[1]])
@@ -827,7 +833,9 @@ namespace Arqui_Simulacion
             bandera_agregar_registros.Set();
         }
 
-
+        /**
+         * Busca si el bloque número numBloque se encuentra en la caché de datos 1. Si lo está devuelve true y si no o si está pero inválido false
+         **/
         private bool buscarEnCacheDatos1(int numBloque)
 
         {
@@ -837,10 +845,12 @@ namespace Arqui_Simulacion
 
             while (!buscado)
             {
+                //Reserva caché
                 if (Monitor.TryEnter(cache_datos_nucleo1))
                 {
                     try
                     {
+                        //Si está y no está inválido pone el resultado en true
                         if ((numBloque == cache_datos_nucleo1[mapeo, 4]) && (cache_datos_nucleo1[mapeo, 5] != -1))
                         {
                             encontrado = true;
@@ -850,9 +860,11 @@ namespace Arqui_Simulacion
 
                     finally
                     {
+                        //Libera caché
                         Monitor.Exit(cache_datos_nucleo1);
                     }
                 }
+                //Deja pasar un ciclo si no se pudo buscar porque no se obtuvo acceso a la caché
                 if (!buscado)
                 {
                     bandera_nucleo1_controlador.Set();
@@ -863,7 +875,9 @@ namespace Arqui_Simulacion
         }
 
 
-
+        /**
+         * Busca si el bloque número numBloque se encuentra en la caché de datos 2. Si lo está devuelve true y si no o si está pero inválido false
+         **/
         private bool buscarEnCacheDatos2(int numBloque)
         {
             bool buscado = false;
@@ -872,10 +886,12 @@ namespace Arqui_Simulacion
 
             while (!buscado)
             {
+                //Reserva caché
                 if (Monitor.TryEnter(cache_datos_nucleo2))
                 {
                     try
                     {
+                        //Si está y no está inválido pone el resultado en true
                         if ((numBloque == cache_datos_nucleo2[mapeo, 4]) && (cache_datos_nucleo2[mapeo, 5] != -1))
                         {
                             encontrado = true;
@@ -885,9 +901,11 @@ namespace Arqui_Simulacion
 
                     finally
                     {
+                        //Libera caché
                         Monitor.Exit(cache_datos_nucleo2);
                     }
                 }
+                //Deja pasar un ciclo si no se pudo buscar porque no se obtuvo acceso a la caché
                 if (!buscado)
                 {
                     bandera_nucleo2_controlador.Set();
@@ -897,7 +915,10 @@ namespace Arqui_Simulacion
             return encontrado;
         }
 
-
+        /**
+         * Reserva la caché propia y el bus. Luego reserva y busca en la otra caché el bloque que se encuentra en direccion. Si lo encuentra y está modificado manda a
+         * traer el bloque de la otra caché. Si no lo manda a traer de memoria
+         **/
         private void resolverFalloCacheDatos1(int direccion)
         {
             //Calcular número de bloque
@@ -982,6 +1003,7 @@ namespace Arqui_Simulacion
                         Monitor.Exit(cache_datos_nucleo1);
                     }
                 }
+                //Dejar pasar un ciclo si no se pudo obtener acceso al bus o a la caché propia
                 if (!tengoBus)
                 {
                     bandera_nucleo1_controlador.Set();
@@ -991,8 +1013,10 @@ namespace Arqui_Simulacion
         }
 
 
-
-
+        /**
+         * Reserva la caché propia y el bus. Luego reserva y busca en la otra caché el bloque que se encuentra en direccion. Si lo encuentra y está modificado manda a
+         * traer el bloque de la otra caché. Si no lo manda a traer de memoria
+         **/
         private void resolverFalloCacheDatos2(int direccion)
         {
             //Calcular número de bloque
@@ -1077,6 +1101,7 @@ namespace Arqui_Simulacion
                         Monitor.Exit(cache_datos_nucleo2);
                     }
                 }
+                //Dejar pasar un ciclo si no se pudo obtener acceso al bus o a la caché propia
                 if (!tengoBus)
                 {
                     bandera_nucleo2_controlador.Set();
@@ -1089,15 +1114,12 @@ namespace Arqui_Simulacion
 
 
         /**
+         * Devuelve el bloque que se está reemplazando a memoria si este estaba modificado. Luego trae a caché el nuevo bloque.
          * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
          **/
         private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
         {
             //Si el bloque viejo está modificado, devolverlo a memoria
-            if(bloqueNuevo == 49)
-            {
-                int i = 0;
-            }
             if (cache_datos_nucleo1[indice, 5] == 1)
             {
                 int bloqueViejo = cache_datos_nucleo1[indice, 4];
@@ -1147,14 +1169,11 @@ namespace Arqui_Simulacion
 
 
         /**
+         * Devuelve el bloque que se está reemplazando a memoria si este estaba modificado. Luego trae a caché el nuevo bloque.
          * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
          **/
         private void WriteBackNucleo2(bool memoria, int bloqueNuevo, int indice)
         {
-            if (bloqueNuevo == 49)
-            {
-                int i = 0;
-            }
             //Si el bloque viejo está modificado, devolverlo a memoria
             if (cache_datos_nucleo2[indice, 5] == 1)
             {
@@ -1205,7 +1224,10 @@ namespace Arqui_Simulacion
 
 
 
-
+        /**
+         * Reserva el bus. Si lo consigue envía un mensaje al hilo controlador diciéndole que debe invalidar un bloque en la caché 2, espera un ciclo y devuelve true.
+         * Si no, devuelve falso.
+         **/
         private bool invalidarBloqueNucleo1(int bloque)
         {
             bool invalidado = false;
@@ -1230,12 +1252,14 @@ namespace Arqui_Simulacion
                 }
             }
 
-            //Devolver si se invalidó o no
-            
+            //Devolver si se invalidó o no            
             return invalidado;
         }
 
-
+        /**
+         * Reserva el bus. Si lo consigue envía un mensaje al hilo controlador diciéndole que debe invalidar un bloque en la caché 1, espera un ciclo y devuelve true.
+         * Si no, devuelve falso.
+         **/
         private bool invalidarBloqueNucleo2(int bloque)
         {
             bool invalidado = false;
@@ -1261,7 +1285,6 @@ namespace Arqui_Simulacion
             }
 
             //Devolver si se invalidó o no
-
             return invalidado;
         }
 
@@ -1272,9 +1295,9 @@ namespace Arqui_Simulacion
             int bloque;
             int dato;
             bool enCache;
-            int indiceBloque ;
+            int indiceBloque;
             bool bloqueInvalidado;
-
+            bool salir;
 
             switch (ins[0])
             {
@@ -1338,96 +1361,108 @@ namespace Arqui_Simulacion
                     agregarRegistros(ref registro_nucleo1, numHilo, 1);
                     break;
                     
-    
-                
-                
-                
-                
                 case 35: //LW
-                   
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
 
-
-                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
-                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-
-                    
-
+                    //Preguntar si el bloque está en caché
                     enCache = buscarEnCacheDatos1(bloque);
+                    
+                    //Si no está resolver el fallo de caché
                     if (!enCache)
                     {
                         resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
                     }
 
+                    //Leer el dato
                     registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
 
                     break;
 
                 case 43: //SW
-                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
-                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    /**
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe y marca el bloque como modificado.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    salir = false; 
+
+                    if (!buscarEnCacheDatos1(bloque))
+                    {
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                    }
                      
-
-                     if (!buscarEnCacheDatos1(bloque))
-                     {
-                         resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
-                     }
                      
-                     
-                     indiceBloque = bloque % 8;
-                      bloqueInvalidado = false;
+                    indiceBloque = bloque % 8;
+                    bloqueInvalidado = false;
 
 
-                     while (!bloqueInvalidado)
-                     {
-                         //Reservar caché propia
-                         if (Monitor.TryEnter(cache_datos_nucleo1))
-                         {
-                             try
-                             {
-                                 //Si el bloque está compartido hay que invalidarlo
-                                 if (cache_datos_nucleo1[indiceBloque, 5] == 0)
-                                 {
-                                     bloqueInvalidado = invalidarBloqueNucleo1(bloque);
-                                 }
+                    while (!bloqueInvalidado)
+                    {
+                        //Reservar caché propia
+                        if (Monitor.TryEnter(cache_datos_nucleo1))
+                        {
+                            try
+                            {
+                                //Si el bloque no se invalidó
+                                if (cache_datos_nucleo1[indiceBloque, 5] != -1)
+                                {
+                                    //Si el bloque está compartido hay que invalidarlo
+                                    if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                    {
+                                        bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                    }
 
-                                 //Si no, no hay que invalidar y se puede hacer el store
-                                 else
-                                 {
-                                     bloqueInvalidado = true;
-                                 }
+                                    //Si no, no hay que invalidar y se puede hacer el store
+                                    else
+                                    {
+                                        bloqueInvalidado = true;
+                                    }
 
-                                 if (bloqueInvalidado)
-                                 {
-                                     cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
-                                     cache_datos_nucleo1[indiceBloque, 5] = 1;
-                                 }
+                                    //Si se tiene certeza de que el bloque fue invalidado se escribe
+                                    if (bloqueInvalidado)
+                                    {
+                                        cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                        cache_datos_nucleo1[indiceBloque, 5] = 1;
+                                    }
+                                }
 
-                             }
-                             finally
-                             {
-                                 //Liberar caché propia
-                                 Monitor.Exit(cache_datos_nucleo1);
-                             }
-                         }
+                                //Repetir instrucción
+                                else
+                                {
+                                    salir = true;
+                                    PC1 -= 4;
+                                }
+                            }
+                            finally
+                            {
+                                //Liberar caché propia
+                                Monitor.Exit(cache_datos_nucleo1);
+                            }
+                        }
 
-                         if (!bloqueInvalidado)
-                         {
-                             //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
-                             bandera_nucleo1_controlador.Set();
-                             bandera_controlador_nucleo1.WaitOne();
-                         }
-                     }
-
-
-
-                     
-
-
+                        if (!bloqueInvalidado || !salir)
+                        {
+                            //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                            bandera_nucleo1_controlador.Set();
+                            bandera_controlador_nucleo1.WaitOne();
+                        }
+                    }
+                  
                     break;
 
                 case 50: //LL
 
-           
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido.
+                     **/
                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
                     enCache = buscarEnCacheDatos1(bloque);
@@ -1444,13 +1479,19 @@ namespace Arqui_Simulacion
                     break;
 
                 case 51: //SC
-         
+                    /**
+                     * Si el candado que comparte con el LL se desactivó pone un 0 en el registro indicado, si no realiza lo siguiente:
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe, marca el bloque como modificado y marca el candado
+                     * con el LL como desactivado.
+                     **/
                     if (registro_nucleo1[32] == registro_nucleo1[ins[1]] + ins[3])
                     {
        
                         bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                        
+                        salir = false;
 
                         if (!buscarEnCacheDatos1(bloque))
                         {
@@ -1469,24 +1510,32 @@ namespace Arqui_Simulacion
                             {
                                 try
                                 {
-                                    //Si el bloque está compartido hay que invalidarlo
-                                    if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                    if (cache_datos_nucleo1[indiceBloque, 5] != -1)
                                     {
-                                        bloqueInvalidado = invalidarBloqueNucleo1(bloque);
-                                    }
+                                        //Si el bloque está compartido hay que invalidarlo
+                                        if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                        {
+                                            bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                        }
 
-                                     //Si no, no hay que invalidar y se puede hacer el store
+                                         //Si no, no hay que invalidar y se puede hacer el store
+                                        else
+                                        {
+                                            bloqueInvalidado = true;
+                                        }
+
+                                        if (bloqueInvalidado)
+                                        {
+                                            cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                            bloqueCandadoActivoNucleo1 = -1;
+                                            cache_datos_nucleo1[indiceBloque, 5] = 1;
+
+                                        }
+                                    }
                                     else
                                     {
-                                        bloqueInvalidado = true;
-                                    }
-
-                                    if (bloqueInvalidado)
-                                    {
-                                        cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
-                                        bloqueCandadoActivoNucleo1 = -1;
-                                        cache_datos_nucleo1[indiceBloque, 5] = 1;
-
+                                        salir = true;
+                                        PC1 -= 4;
                                     }
 
                                 }
@@ -1497,7 +1546,7 @@ namespace Arqui_Simulacion
                                 }
                             }
 
-                            if (!bloqueInvalidado)
+                            if (!bloqueInvalidado || !salir)
                             {
                                 //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
                                 bandera_nucleo1_controlador.Set();
@@ -1523,6 +1572,7 @@ namespace Arqui_Simulacion
             bool enCache;
             int indiceBloque;
             bool bloqueInvalidado;
+            bool salir;
 
             switch (ins[0])
             {
@@ -1589,33 +1639,44 @@ namespace Arqui_Simulacion
                 case 35: //LW
 
 
-
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido.
+                     **/
                     bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
 
 
-
+                    //Preguntar si el bloque está en caché
                     enCache = buscarEnCacheDatos2(bloque);
+                    
+                    //Si no está resolver el fallo de caché
                     if (!enCache)
                     {
                         resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
                     }
 
+                    //Leer el dato
                     registro_nucleo2[ins[2]] = cache_datos_nucleo2[bloque % 8, dato];
 
                     break;
 
                 case 43: //SW
+                    /**
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe y marca el bloque como modificado.
+                     **/
                     bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                     dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                    
+                    salir = false; 
 
                     if (!buscarEnCacheDatos2(bloque))
                     {
                         resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
                     }
-
-
+                     
+                     
                     indiceBloque = bloque % 8;
                     bloqueInvalidado = false;
 
@@ -1627,24 +1688,35 @@ namespace Arqui_Simulacion
                         {
                             try
                             {
-                                //Si el bloque está compartido hay que invalidarlo
-                                if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                //Si el bloque no se invalidó
+                                if (cache_datos_nucleo2[indiceBloque, 5] != -1)
                                 {
-                                    bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                    //Si el bloque está compartido hay que invalidarlo
+                                    if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                    {
+                                        bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                    }
+
+                                    //Si no, no hay que invalidar y se puede hacer el store
+                                    else
+                                    {
+                                        bloqueInvalidado = true;
+                                    }
+
+                                    //Si se tiene certeza de que el bloque fue invalidado se escribe
+                                    if (bloqueInvalidado)
+                                    {
+                                        cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                        cache_datos_nucleo2[indiceBloque, 5] = 1;
+                                    }
                                 }
 
-                                //Si no, no hay que invalidar y se puede hacer el store
+                                //Repetir instrucción
                                 else
                                 {
-                                    bloqueInvalidado = true;
+                                    salir = true;
+                                    PC2 -= 4;
                                 }
-
-                                if (bloqueInvalidado)
-                                {
-                                    cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
-                                    cache_datos_nucleo2[indiceBloque, 5] = 1;
-                                }
-
                             }
                             finally
                             {
@@ -1653,18 +1725,13 @@ namespace Arqui_Simulacion
                             }
                         }
 
-                        if (!bloqueInvalidado)
+                        if (!bloqueInvalidado || !salir)
                         {
                             //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
                             bandera_nucleo2_controlador.Set();
                             bandera_controlador_nucleo2.WaitOne();
                         }
                     }
-
-
-
-
-
 
                     break;
 
@@ -1693,13 +1760,17 @@ namespace Arqui_Simulacion
                     break;
 
                 case 51: //SC
-
+                    /**
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe y marca el bloque como modificado.
+                     **/
                     if (registro_nucleo2[32] == registro_nucleo2[ins[1]] + ins[3])
                     {
         
                         bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
                         dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
-                        
+                        salir = false;
 
                         if (!buscarEnCacheDatos2(bloque))
                         {
@@ -1718,25 +1789,32 @@ namespace Arqui_Simulacion
                             {
                                 try
                                 {
-                                    //Si el bloque está compartido hay que invalidarlo
-                                    if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                    if (cache_datos_nucleo1[indiceBloque, 5] != -1)
                                     {
-                                        bloqueInvalidado = invalidarBloqueNucleo2(bloque);
-                                    }
+                                        //Si el bloque está compartido hay que invalidarlo
+                                        if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                        {
+                                            bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                        }
 
-                                     //Si no, no hay que invalidar y se puede hacer el store
+                                         //Si no, no hay que invalidar y se puede hacer el store
+                                        else
+                                        {
+                                            bloqueInvalidado = true;
+                                        }
+
+                                        if (bloqueInvalidado)
+                                        {
+                                            cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                            bloqueCandadoActivoNucleo2 = -1;
+                                            cache_datos_nucleo2[indiceBloque, 5] = 1;
+                                        }
+                                    }
                                     else
                                     {
-                                        bloqueInvalidado = true;
+                                        salir = true;
+                                        PC2 -= 4;
                                     }
-
-                                    if (bloqueInvalidado)
-                                    {
-                                        cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
-                                        bloqueCandadoActivoNucleo2 = -1;
-                                        cache_datos_nucleo2[indiceBloque, 5] = 1;
-                                    }
-
                                 }
                                 finally
                                 {
@@ -1745,7 +1823,7 @@ namespace Arqui_Simulacion
                                 }
                             }
 
-                            if (!bloqueInvalidado)
+                            if (!bloqueInvalidado || !salir)
                             {
                                 //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
                                 bandera_nucleo2_controlador.Set();
