@@ -151,3 +151,16 @@ C:\Users\andre\Documents\GitHub\Sim\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.
 C:\Users\andre\Documents\GitHub\Sim\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
 C:\Users\andre\Documents\GitHub\Sim\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
 C:\Users\andre\Documents\GitHub\Sim\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.config
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.pdb
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.application
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.exe
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\bin\Debug\Arqui_Simulacion.pdb
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csprojResolveAssemblyReference.cache
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Form1.resources
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.Properties.Resources.resources
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.csproj.GenerateResource.Cache
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.exe.manifest
+C:\Users\Giancarlo\Documents\UCR\Arqui_Simulacion\Arqui_Simulacion\obj\Debug\Arqui_Simulacion.application
