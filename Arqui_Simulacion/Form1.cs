@@ -14,19 +14,16 @@ namespace Arqui_Simulacion
 {
     public partial class Form1 : Form
     {
-        private int[] RAM;
+
 
         private int[] registro_nucleo1;
         private int[] registro_nucleo2;
 
-        private int[,] cache_datos_nucleo1;
-        private int[,] cache_datos_nucleo2;
 
 
         private int[,] cache_instrucciones_nucleo1;
         private int[,] cache_instrucciones_nucleo2;
 
-        private int[] bloques_cache_instrucciones_nucleo1; //indica el número de bloques que están en caché
 
         private int[] hilo_a_ejecutar; //indica cual hilo va a ejecutar cada núcleo
 
@@ -35,221 +32,674 @@ namespace Arqui_Simulacion
         private long reloj;
 
         private bool finPrograma;
+        private bool nucleo1Activo;
+        private bool nucleo2Activo;
+        
 
-        private int[,] PCB;
+        private int[,] PCB; //Estructura que guarda los contextos de los hilos
 
-        private int PC1;
-        private int PC2;
+        private int PC1; // Prorgram counter del núcleo 1
+        private int PC2; // Prorgram counter del núcleo 1
 
-        private List<int> colaRR; //Simula la cola para el round Robin
-        private Dictionary<int, int> mapaContexto; //Asocia el id del hilo con el contexto
 
-        private int numHilos;  //indica cuántos hilos de MIPS (archivos) tiene el programa
-        private int quatum;
-        private int tiempoLecturaEscritura;
+        private int quantum;  //Guarda el quantum que el usuario especifica en interfaz
+
+        private int tiempoLecturaEscritura; 
         private int tiempoTransferencia;
-        private bool modoLento;
+        private int delay;
+        private int numHilos;
 
-        private WaitHandle[] banderas_nucleos_controlador;
+        private int quantum1; //Guarda el quantum local del hilo 1
+        private int quantum2; 
 
-        private AutoResetEvent bandera_nucleo1_controlador;
-        private AutoResetEvent bandera_nucleo2_controlador;
+        private WaitHandle[] banderas_nucleos_controlador; // Array de semáforo de los núcleos al controlador
 
-        private AutoResetEvent bandera_controlador_nucleo1;
-        private AutoResetEvent bandera_controlador_nucleo2;
+        private AutoResetEvent bandera_nucleo1_controlador; //Semáforo del núcleo 1 al controlador
+        private AutoResetEvent bandera_nucleo2_controlador; //Semáforo del núcleo 2 al controlador
 
-        private ArrayList bus;
+        private AutoResetEvent bandera_controlador_nucleo1; //Semáforo del controlador al núcleo 1
+        private AutoResetEvent bandera_controlador_nucleo2; //Semáforo del controlador al núcleo 2
+
+
+
+        private AutoResetEvent bandera_agregar_registros; //Semáforo para controlar la escritura de los núcleos
+
+        private ArrayList bus; //Bus de instrucciones
+
+        private Queue<int> robin; //Cola de round robin
+
+        private string textoInterfaz;
+
+        private string textoFinal;
+
+/****************************************VARIABLES DE LA SEGUNDA ETAPA******************************************/
+
+        private int[] RAMInstrucciones;
+        private int[] RAMDatos;
+        private ArrayList busDatos;
+        private int etiquetaBloqueNucleo1, etiquetaBloqueNucleo2; //variables usadas para indicar cuál bloque se va a invalidar
+
+        private bool invalidarNucleo1, invalidarNucleo2;
+        private int[,] cache_datos_nucleo1;
+        private int[,] cache_datos_nucleo2;
+        private int bloqueCandadoActivoNucleo1, bloqueCandadoActivoNucleo2; //indican el número de bloque del candado que está siendo utilizado en todo momento por un par de instrucciones LL y SC
+
+        private int[] cantidadCiclos;
 
         public Form1()
         {
-            colaRR = new List<int>(); //Creamos el calendarizador
-            mapaContexto = new Dictionary<int, int>(); //<id del proceso, puntero al contexto>
-
-
             InitializeComponent();
 
-            default_values();
+            button1.Enabled = false;
 
+            textoInterfaz = "";
 
-            modoLento = false;
+            textoFinal = "";
 
+            robin = new Queue<int>();
 
-            RAM = new int[2048];
-            registro_nucleo1 = new int[32];
-            registro_nucleo2 = new int[32];
+            delay = 0;
 
-            cache_datos_nucleo1 = new int[8, 16];
-            cache_datos_nucleo2 = new int[8, 16];
+            finPrograma = false; //bandera para finalizar el programa
+            nucleo1Activo = true;
+            nucleo2Activo = true;
+
+          
+            RAMInstrucciones = new int[640];
+            RAMDatos = new int[352];
+
+            //Inicializar RAM de Datos
+            for (int i = 0; i < 352; i++)
+            {
+                RAMDatos[i] = 1;
+            }
+
+            //32 registros y RL
+            registro_nucleo1 = new int[33];
+            registro_nucleo2 = new int[33];
+
+            cache_datos_nucleo1 = new int[8, 6];
+            cache_datos_nucleo2 = new int[8, 6];
+
+            //Inicializar cachés de Datos en 0, etiqueta en -1 y banderas apagadas
+            for (int i = 0; i < 8; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    cache_datos_nucleo1[i,j] = 0;
+                }
+                cache_datos_nucleo1[i, 4] = -1;
+                cache_datos_nucleo1[i, 5] = -1;
+            }
+
+            for (int i = 0; i < 8; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                {
+                    cache_datos_nucleo2[i, j] = 0;
+                }
+                cache_datos_nucleo2[i, 4] = -1;
+                cache_datos_nucleo2[i, 5] = -1;
+
+            }
 
             cache_instrucciones_nucleo1 = new int[8, 16];
             cache_instrucciones_nucleo2 = new int[8, 16];
 
+            invalidarNucleo1 = invalidarNucleo2 = false; //Variables para indicarle al controlador si uno de los 
+            //núcleos necesita invalidar algo.
+
+            etiquetaBloqueNucleo1 = etiquetaBloqueNucleo2 = -1; //Etiqueta del bloque que se invalidará en caso de.
+
             hilo_a_ejecutar = new int[2];
 
-            fin_hilos = new bool[6];
+            
 
             bus = new ArrayList(4);
 
+            bus.Add(0);
+            bus.Add(1);
+            bus.Add(2);
+            bus.Add(3);
+
+            busDatos = new ArrayList(4);
+
+            busDatos.Add(0);
+            busDatos.Add(1);
+            busDatos.Add(2);
+            busDatos.Add(3);
+
             banderas_nucleos_controlador = new WaitHandle[2];
 
-            bandera_nucleo1_controlador = new AutoResetEvent(false);
-            bandera_nucleo2_controlador = new AutoResetEvent(false);
+            //El true permite que la primera vez que hace wait, siga adelante
+            bandera_nucleo1_controlador = new AutoResetEvent(true); 
+            bandera_nucleo2_controlador = new AutoResetEvent(true);
 
             banderas_nucleos_controlador[0] = bandera_nucleo1_controlador;
             banderas_nucleos_controlador[1] = bandera_nucleo2_controlador;
 
+            //El false permite que la primera vez que hace wait se detenga
+            bandera_controlador_nucleo1 = new AutoResetEvent(false);
+            bandera_controlador_nucleo2 = new AutoResetEvent(false);
+
+            //El true permita que la primera vez que hace wait, siga adelante
+            bandera_agregar_registros = new AutoResetEvent(true);
+
+            bloqueCandadoActivoNucleo1 = -1;
+            bloqueCandadoActivoNucleo2 = -1;
+
         }
 
-        private void default_values()
-        {
-            button1.Enabled = false;
-        }
+
+
+
 
         public void controlador()
         {
 
-            int contador = 0;
+            
 
-            Thread nucleo1 = new Thread(new ThreadStart(nucleo));
+
+            //Agregamos los hilos al round robin
+            for (int i = 0; i < numHilos; ++i )
+            {
+                robin.Enqueue(i);
+            }
+            
+
+            //Creamos e inicializamos los hilos de los núcleos
+            Thread nucleo1 = new Thread(new ThreadStart(nucleo_1)); 
             nucleo1.Name = "nucleo1";
-            nucleo1.Start();
-            Thread nucleo2 = new Thread(new ThreadStart(nucleo));
+            nucleo1.Start(); //Los ponemos a correr 
+            Thread nucleo2 = new Thread(new ThreadStart(nucleo_2));
             nucleo2.Name = "nucleo2";
             nucleo2.Start();
+            
+            reloj = 0;
 
-            reloj = -1;
+            quantum1 = 0;
+            quantum2 = 0;
 
-            while(colaRR.Count != 0)
+            
+
+            while(!finPrograma)
             {
-                contador = (contador == (colaRR.Count - 1)) ? 0 : contador; // Si ya llegamos al final
-                //Devuelvase al inicio de la cola, si no, siga en donde está
+                 WaitHandle.WaitAll(banderas_nucleos_controlador);
 
-                WaitHandle.WaitAll(banderas_nucleos_controlador);
+                 //A continuación se controla la invalidación de un bloque
 
-                /** TODO: if(quantum == 0) asigne otro hilo y reinicie quantum; if (hilo_terminado) saque de la cola **/
+                 //En caso de invalidación pedida por parte del Núcleo1
+                 if (invalidarNucleo1) //En caso de invalidación 
+                 {
+                     //Si el bloque que se quiere invalidar está en la caché 2
+                     if (cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 4] == etiquetaBloqueNucleo1)
+                     {
+                         cache_datos_nucleo2[etiquetaBloqueNucleo1 % 8, 5] = -1; //Invalidar el bloque
+
+                         //Si el bloque invalidado contenía un candado de LL y SC activo
+                         if (bloqueCandadoActivoNucleo2 == etiquetaBloqueNucleo1)
+                         {
+
+                             registro_nucleo2[32] = -1; //Poner RL en -1
+                         }
+                     }
+                     invalidarNucleo1 = false; //Reiniciar booleano
+                 }
+
+                 //En caso de invalidación pedida por parte del Núcleo2
+                 else if (invalidarNucleo2)
+                 {
+                     //Si el bloque que se quiere invalidar está en la caché 1
+                     if (cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 4] == etiquetaBloqueNucleo2)
+                     {
+                         cache_datos_nucleo1[etiquetaBloqueNucleo2 % 8, 5] = -1; //Invalidar el bloque
+
+                         //Si el bloque invalidado contenía un candado de LL y SC activo
+                         if (bloqueCandadoActivoNucleo1 == etiquetaBloqueNucleo2)
+                         {
+
+                             registro_nucleo1[32] = -1; //Poner RL en -1
+                         }
+                     }
+                     invalidarNucleo2 = false; //Reiniciar booleano
+                 }
+
+                //Si se vencio el quantum, el hilo terminó y el núcleo continúa activo es hora de asignar otro hilo
+                 if((quantum1 == 0 || fin_hilos[hilo_a_ejecutar[0]]) && nucleo1Activo)
+                 {
+                     
+                     if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
+                     {
+
+                         hilo_a_ejecutar[0] = robin.Dequeue();
+
+                         quantum1 = quantum;
+
+                         registro_nucleo1[32] = -1;
+
+                     }
+                     else 
+                     {
+                         nucleo1Activo = false;
+
+                         for (int i = 0; i < 8; ++i )
+                         {
+                             if(cache_datos_nucleo1[i,5] == 1)
+                             {
+                                 int memo = (cache_datos_nucleo1[i, 4] - 40) * 4;
+
+                                 for (int j = 0; j < 4; ++j, ++memo )
+                                 {
+                                     RAMDatos[memo] = cache_datos_nucleo1[i, j];
+                                 }
+                             }
+                         }
+                         if (!nucleo2Activo)
+                         {
+                             finPrograma = true; //Si ya los dos núcleos están inactivos, terminó la simulación
+                         } 
+
+                     }
+                    
+                     
+                 }
+                 
+                 if((quantum2 == 0 || fin_hilos[hilo_a_ejecutar[1]]) && nucleo2Activo)
+                 {
+
+                     if (robin.Count() != 0) //Si es distinto de 0, aún quedan hilos por procesar
+                     {
+
+                         hilo_a_ejecutar[1] = robin.Dequeue();
+                         quantum2 = quantum;
+                         registro_nucleo2[32] = -1;
+
+                     }
+                     else
+                     {
+                         nucleo2Activo = false;
+
+                         for (int i = 0; i < 8; ++i)
+                         {
+                             if (cache_datos_nucleo2[i, 5] == 1)
+                             {
+                                 int memo = (cache_datos_nucleo2[i, 4] - 40) * 4;
+
+                                 for (int j = 0; j < 4; ++j, ++memo)
+                                 {
+                                     RAMDatos[memo] = cache_datos_nucleo2[i, j];
+                                 }
+                             }
+                         }
+
+
+                         if (!nucleo1Activo)
+                         {
+                             finPrograma = true; //Si ya los dos núcleos están inactivos, terminó la simulación                             
+                         } 
+                     }
+
+
+
+                 }
+
+
+
+
+                textoInterfaz = "El reloj es: " + reloj + "\n" + "El núcleo 1 ejecuta el hilo: "
+                    + hilo_a_ejecutar[0] + "\n El núcleo 2 ejecuta el hilo: " 
+                    + hilo_a_ejecutar[1]+"\n\n";
+
+                textoInterfaz += "La caché de datos del nucleo 1 es: \n";
+
                 
-                ++contador;
-                reloj++;
+               for(int i = 0; i < 8; ++i)
+               {
+                   for (int j = 0; j < 6; ++j )
+                   {
+                       textoInterfaz += cache_datos_nucleo1[i, j] + ", ";
+                   }
+               }
 
-                /** TODO: Actualizaciòn de Interfaz **/
+
+               textoInterfaz += "\n\nLa caché de datos del nucleo 2 es: \n";
+
+
+               for (int i = 0; i < 8; ++i)
+               {
+                   for (int j = 0; j < 6; ++j)
+                   {
+                       textoInterfaz += cache_datos_nucleo2[i, j] + ", ";
+                   }
+               }
+                
+                textoInterfaz += "\n" ;
+
+                ++reloj;
+
+                
 
                 bandera_controlador_nucleo1.Set();
                 bandera_controlador_nucleo2.Set();
-                
+             
             }
-
             
         }
 
-        public void nucleo()
+        public void nucleo_1()
         {
-            int quantum = 0 ;
-            int [] instruccion = new int[4];
-            bool aciertoCache = false;
-            bool busOcupado = true;
-            while (!finPrograma)
+
+            ArrayList bloques_cargados = new ArrayList(); //Lleva la cuenta de los bloques cargados
+
+            for (int i = 0; i < 8; ++i )
             {
+                bloques_cargados.Add(-1); //Lo inicializamos en -1 para asegurar que cuando empieza a ejecutarse no haya ningún bloque
+            }
+
+            int numInstruccion;
+            int [] instruccion = new int[4]; //Guarda la instrucción cargada
+            bool busOcupado = false; 
+            int numHilo1; //Hilo actual
+            int numBloque;// Número de bloque a cargar
+            int offset = 0;
+
+
+            while (nucleo1Activo)
+            {
+
+                Thread.Sleep(delay);
                 bandera_controlador_nucleo1.WaitOne();
-                if (Thread.CurrentThread.Name == "Nucleo1")
-                {
-                    int dirHilo = hilo_a_ejecutar[0];
-                    int numHilo1 = mapaContexto[hilo_a_ejecutar[0]];  //se guarda en numHilo1 el número de hilo que le toca ejecutar
-                    for (int i = 0; i < 32; i++)    //recupera el contexto (falta PC)
+                numHilo1 = hilo_a_ejecutar[0]; //pedimos el hilo seleccionado por round robin
+  
+                    for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
                     {
+                        
                         registro_nucleo1[i] = PCB[numHilo1, i];
                     }
-                    PC1 = PCB[numHilo1, 32];
-                    while (quantum != 0 && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
-                    {
-                        int numBloque = PC1 / 4;    //calcula el número de bloque en el que está la siguiente instrucción
-                        int i = 0;
-                        while (i < numHilos && !aciertoCache)    //busca el bloque en caché
-                        {
-                            if (numBloque == bloques_cache_instrucciones_nucleo1[i])
-                            {
-                                aciertoCache = true;
-                            }
-                        }
 
-                        
-                        if (!aciertoCache)
+                    PC1 = PCB[numHilo1, 32]; //Recuperamos el contexto
+                    
+
+                    while ( (quantum1 != 0) && !fin_hilos[numHilo1])    //mientras tenga quantum y no haya terminado el hilo
+                    {
+
+                        numBloque = (int) Math.Floor((double)PC1 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
+
+
+
+                        if (!bloques_cargados.Contains(numBloque))
                         {
-                            while (busOcupado)
+                            while (!busOcupado)
                             {
-                                if (Monitor.TryEnter(bus))
+                                if (Monitor.TryEnter(bus)) //Esto funciona como un lock
                                 {
                                     try
                                     {
-                                        /** TODO: Aquí va el fallo de caché **/
-                                        busOcupado = false;
+                                        /** fallo de caché **/
+
+                                        busOcupado = true;
+                                        offset = 0;
+                                        for (int n = 0; n < 4; ++n)
+                                        { //Cargamos de la RAM
+                                            for (int m = 0; m < bus.Count; ++m)
+                                            {
+                                                bus[m] = RAMInstrucciones[numBloque * 16 + m + offset];
+                                            }
+
+                                            //Cargamos a la caché de instrucciones
+                                            for (int m = 0; m < 4; m++)
+                                            {
+                                                cache_instrucciones_nucleo1[numBloque % 8, m + offset] = (int)bus[m];
+                                            }
+
+                                            offset += 4;
+                                        }
+
+                                        //Grabamos el número de bloque en la estructura
+                                        bloques_cargados[numBloque % 8] = numBloque;
+
+                                        for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
+                                        {
+                                            //Simulamos el tiempo de transferencia y escritura
+                                            bandera_nucleo1_controlador.Set();
+                                            bandera_controlador_nucleo1.WaitOne();
+                                            cantidadCiclos[numHilo1] += 1;
+                                        }
+
+
+
                                     }
                                     finally
                                     {
-                                        Monitor.Exit(bus);
+                                        Monitor.Exit(bus); //Habilitamos el bus
+
                                     }
                                 }
                                 else
                                 {
+                                    //Si el bus está ocupado, dejamos actualizar el reloj.
                                     bandera_nucleo1_controlador.Set();
                                     bandera_controlador_nucleo1.WaitOne();
+                                    cantidadCiclos[numHilo1] += 1;
                                 }
                             }
+                            busOcupado = false;
                         }
 
-                        int numInstruccion = PC1 % 4;
-                        for (int j = numInstruccion; j < numInstruccion + 4; j++)
+
+                        numInstruccion = PC1 % 16; //Calculamos el número de instrucción
+                        for (int j = numInstruccion; j < numInstruccion + 4; ++j)
                         {
-                            instruccion[j] = cache_instrucciones_nucleo1[i, j];
+                            instruccion[j % 4] = cache_instrucciones_nucleo1[numBloque % 8, j];
                         }
-                        PC1 += 4;
-                        ejecutarInstruccion1(ref instruccion, numHilo1);
-                        quantum--;
-                        if (quantum == 0 || !fin_hilos[numHilo1])
+                        
+                        PC1 += 4; 
+
+
+
+                        ejecutarInstruccion1(ref instruccion, numHilo1); // mandamos a ejecutar la instrucción
+
+
+                        quantum1--;
+
+                        if (quantum1 == 0 && !fin_hilos[numHilo1])
                         {
-                            for (int k = 0; k < 32; k++)    //guarda el contexto (falta PC)
+                            for (int k = 0; k < 32; ++k)    //guarda el contexto (falta PC)
                             {
                                 PCB[numHilo1, k] = registro_nucleo1[k];
                             }
-                            PCB[numHilo1, 32] = PC1;
+                            PCB[numHilo1, 32] = PC1; //Guardar PC
+                            
+
+                             robin.Enqueue(numHilo1); //Si el hilo aún no se ha terminado de ejecutar,
+                                                     //lo volvemos a encolar para calendarizarlo
+
                         }
-                        bandera_nucleo1_controlador.Set();
+
+
+                        if (quantum1 != 0 && !fin_hilos[numHilo1])
+                        {
+                            bandera_nucleo1_controlador.Set();
+                            bandera_controlador_nucleo1.WaitOne();
+                            cantidadCiclos[numHilo1] += 1;
+                        }
+                    }
+
+                    bandera_nucleo1_controlador.Set();
+               
+            }
+
+            
+            while (!finPrograma)
+            {
+                bandera_nucleo1_controlador.Set();
+                bandera_controlador_nucleo1.WaitOne();
+            }
+             
+        }
+
+        /**
+         * Véase los comentarios del núcleo 1, ya que ambos son iguales
+        **/
+        public void nucleo_2()
+        {
+            ArrayList bloques_cargados = new ArrayList();
+
+            for (int i = 0; i < 8; ++i)
+            {
+                bloques_cargados.Add(-1);
+            }
+
+            int numHilo2;
+            int numInstruccion;
+            int[] instruccion = new int[4];
+            int numBloque;
+            int offset = 0;
+            bool busOcupado = false;
+
+            while (nucleo2Activo)
+            {
+                Thread.Sleep(delay);
+
+                bandera_controlador_nucleo2.WaitOne();
+
+                numHilo2 = hilo_a_ejecutar[1];
+
+
+                for (int i = 0; i < 32; ++i)    //recupera el contexto (falta PC)
+                {
+                    registro_nucleo2[i] = PCB[numHilo2, i];
+                }
+                PC2 = PCB[numHilo2, 32]; //Recuperar PC
+                
+
+                while ((quantum2 != 0) && !fin_hilos[numHilo2])    //mientras tenga quantum y no haya terminado el hilo
+                {
+                
+
+
+                    numBloque = (int)Math.Floor((double)PC2 / 16);    //calcula el número de bloque en el que está la siguiente instrucción
+
+                    if (!bloques_cargados.Contains(numBloque))
+                    {
+                        while (!busOcupado)
+                        {
+                            if (Monitor.TryEnter(bus))
+                            {
+                                try
+                                {
+                                    //Fallo de caché
+                                    busOcupado = true;
+                                    offset = 0;
+                                    for (int n = 0; n < 4; ++n)
+                                    {
+                                        for (int m = 0; m < 4; ++m)
+                                        {
+                                            bus[m] = RAMInstrucciones[numBloque * 16 + m + offset];
+                                        }
+
+                                        for (int m = 0; m < 4; ++m)
+                                        {
+                                            cache_instrucciones_nucleo2[numBloque % 8, m + offset] = (int)bus[m];
+                                        }
+
+                                        offset += 4;
+                                    }
+
+                                    bloques_cargados[numBloque % 8] = numBloque;
+
+                                    for (int t = 0; t < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); t++)
+                                    {
+                                        bandera_nucleo2_controlador.Set();
+                                        bandera_controlador_nucleo2.WaitOne();
+                                        cantidadCiclos[numHilo2] += 1;
+                                    }
+
+
+
+                                }
+                                finally
+                                {
+                                    Monitor.Exit(bus);
+                                }
+                            }
+                            else
+                            {
+
+                                bandera_nucleo2_controlador.Set();
+                                bandera_controlador_nucleo2.WaitOne();
+                                cantidadCiclos[numHilo2] += 1;
+                                
+                            }
+                        }
+                        busOcupado = false;
+                    }
+
+
+                    numInstruccion = PC2 % 16;
+                    for (int j = numInstruccion; j < (numInstruccion + 4); ++j)
+                    {
+                        instruccion[j % 4] = cache_instrucciones_nucleo2[numBloque % 8, j];
                     }
                     
+                    PC2 += 4;
+
+                    ejecutarInstruccion2(ref instruccion, numHilo2);
+                    quantum2--;
+
+                    if (quantum2 == 0 && !fin_hilos[numHilo2])
+                    {
+                        for (int k = 0; k < 32; ++k)    //guarda el contexto (falta PC)
+                        {
+                            PCB[numHilo2, k] = registro_nucleo2[k];
+
+                        }
+                        PCB[numHilo2, 32] = PC2; //Guardar PC
+                        
+
+                        robin.Enqueue(numHilo2); // Si aún no ha terminado,
+                        //lo volvemos a calendarizar para volverlo a calendarizar
+
+
+                    }
+
+
+                    if (quantum2 != 0 && !fin_hilos[numHilo2])
+                    {
+                        bandera_nucleo2_controlador.Set();
+                        bandera_controlador_nucleo2.WaitOne();
+                        cantidadCiclos[numHilo2] += 1;
+                    }
                 }
 
-                
+                bandera_nucleo2_controlador.Set();
             }
+
+            
+            while (!finPrograma)
+            {
+                bandera_nucleo2_controlador.Set();
+                bandera_controlador_nucleo2.WaitOne();
+            }
+            
         }
 
 
-
-
-
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
 
         private void radioButton1_CheckedChanged(object sender, EventArgs e)
         {
-            button2.Visible = true;
-            modoLento = true;
+            delay = 400;
         }
 
-        private void radioButton2_CheckedChanged(object sender, EventArgs e)
-        {
-            button2.Visible = false;
-            modoLento = false;
-        }
-
-
+        /**
+         * Permite cargar los archivos
+         **/
         private void button1_Click(object sender, EventArgs e)
         {
-            int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
+            
             OpenFileDialog archivador = new OpenFileDialog();
-           
-            int contador = 0;
-            System.IO.StreamReader sr;
+          
+            
 
             archivador.Multiselect = true; //permite seleccionar mas de un archivo
             archivador.Title = "Seleccione los hilos";
@@ -257,193 +707,1155 @@ namespace Arqui_Simulacion
 
             if (archivador.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                foreach(String file in archivador.FileNames)
-                {
-                    ++contador;
-
-                     colaRR.Add(puntero); //Agregamos a la lista de Round Robin el id del hilo
-                    //En este caso usaremos como id del hilo, la direccion en memoria
-                    //donde inicia el hilo
-
-                    mapaContexto.Add(puntero,contador); //<ID del hilo, # de hilo>
-
-                   sr = new System.IO.StreamReader(file);
-                   cargarRAM(ref sr, ref puntero);
-                   sr.Close();
-
-                }       
-                
-            }
-
-
-
-            if ((int.Parse(textBox1.Text) != contador) && (contador > 0))
-            {
-                textBox1.Text = "" + contador;
-
-                MessageBox.Show("El parámetro que usted especificó para la cantidad de hilos " +
-                "no coincide con la cantidad de archivos que escogió, pero lo hemos cambiado, no se preocupe.",
-                "Información", MessageBoxButtons.OK, MessageBoxIcon.Information);
-
+                cargarRAM(ref archivador);
             }
 
         }
 
-        private void cargarRAM(ref System.IO.StreamReader sr, ref int puntero)
+        private void cargarRAM(ref OpenFileDialog archivador )
         {
+            int puntero = 0; //puntero que indica la posicion en la que debe guardarse el siguiente entero en la RAM
+            int contador = -1; //Número de hilo lógico [0,1,2,3]
             String linea;
             int[] temporal;
 
+            System.IO.StreamReader sr;
 
-            linea = sr.ReadLine();
-            while ((linea != null) && (linea != ""))
+            foreach (String file in archivador.FileNames)
             {
 
-                temporal = linea.Split(' ').Select(int.Parse).ToArray();
+                ++contador;
 
-                for (int i = 0; i < 4; ++i, ++puntero)
-                {
-                    RAM[puntero] = temporal[i];
-                }
+                PCB[contador, 32] = puntero; //Agregamos a la lista de Round Robin el id del hilo
+                //En este caso usaremos como id del hilo, la direccion en memoria
+                //donde inicia el hilo
+
+                sr = new System.IO.StreamReader(file);
 
                 linea = sr.ReadLine();
-                
+                while ((linea != null) && (linea != ""))
+                {
+
+                    temporal = linea.Split(' ').Select(int.Parse).ToArray();
+
+                    for (int i = 0; i < 4; ++i, ++puntero)
+                    {
+                        RAMInstrucciones[puntero] = temporal[i];
+                    }
+
+                    linea = sr.ReadLine();
+
+                }
+
+                sr.Close();
+
             }
+
+
+            Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
+            control.Start();
+
+            actualizarInterfaz();
         }
 
-        private void textBox1_TextChanged(object sender, EventArgs e)
-        {
-            button1.Enabled = false;
 
-            if(textBox1.Text != "")
-            {
-                button1.Enabled = true;
-            }
-        }
-
+        /**
+         * Carga todos los datos de la interfaz
+         **/
         private void button3_Click(object sender, EventArgs e)
         {
-            numHilos = int.Parse(textBox1.Text);
-            PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
-             
-            quatum = int.Parse(textBox4.Text); 
+            if ((textBox1.Text != "") && (textBox2.Text != "") && (textBox3.Text != "") && (textBox4.Text != ""))
+            {
+                numHilos = int.Parse(textBox1.Text);
+                PCB = new int[numHilos, 33]; //Inicializamos el PCB (Process Control Block)
+                fin_hilos = new bool[numHilos];
 
-            tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
+                cantidadCiclos = new int[numHilos];
 
-            tiempoTransferencia = int.Parse(textBox3.Text); //Este es el valor de m que menciona el enunciado.
+                for (int i = 0; i < numHilos; ++i )
+                {
+                    cantidadCiclos[i] = 0;
+                }
 
-             Thread control = new Thread(new ThreadStart(controlador)); //Iniciamos el controlador (Scheduler)
-             control.Start();
+                quantum = int.Parse(textBox4.Text);
+
+                tiempoLecturaEscritura = int.Parse(textBox2.Text);// Este es el valor de b que menciona el enunciado
+
+                tiempoTransferencia = int.Parse(textBox3.Text); //Este es el valor de m que menciona el enunciado.
+
+                for (int i = 0; i < fin_hilos.Length; ++i)
+                {
+                    fin_hilos[i] = false;
+                }
+
+
+
+                button1.Enabled = true;
+
+            }
+            else
+            {
+                MessageBox.Show("¡Espera!...\nAún no has cargado suficientes datos.\n"+
+                    "Revisa que los textbox estén llenos y los hilos ya hayan sido cargados a memoria.","Hilos",MessageBoxButtons.OK,MessageBoxIcon.Stop);    
+            }
 
         }
+
+        private void actualizarInterfaz()
+        {
+
+            while(!finPrograma)
+            {
+                Thread.Sleep(delay);
+
+                richTextBox1.AppendText(textoInterfaz);
+
+                Application.DoEvents();
+                
+            }
+
+            textoFinal += "El contenido de la memoria RAM es: \n\n";
+            for (int i = 0; i < 352; ++i )
+            {
+                textoFinal += RAMDatos[i]+ ", ";
+            }
+
+            richTextBox1.Clear();
+
+            richTextBox1.AppendText(textoFinal);
+            
+        }
+
+        /**
+         * Cada vez que un hilo termina, agregamos sus regristros a un string que se imprimirá al final.
+         **/
+        private void agregarRegistros(ref int[] registros, int hilo, int nucleo)
+        {
+
+            bandera_agregar_registros.WaitOne();
+
+            textoFinal += "Hilo: "+hilo+" Nucleo: "+nucleo+"\n";
+            textoFinal += "Registros: \n";
+            for (int i = 0; i < 32; ++i )
+            {
+                textoFinal += "R" + i + " = " + registros[i]+"\n\n";
+            }
+
+            textoFinal += "El RL es: " + registros[32]+"\n\n";
+
+            textoFinal += "El contenido de la caché de datos del hilo " + hilo + " es: \n";
+
+            int[,] cache = (nucleo == 1)?cache_datos_nucleo1:cache_datos_nucleo2;
+
+            for(int i = 0; i < 8; ++i)
+            {
+                for (int j = 0; j < 6; ++j )
+                {
+                    textoFinal += cache[i, j]+", ";
+                }
+            }
+
+            textoFinal += "\n\nLa cantidad de ciclos que consumí es: "+cantidadCiclos[hilo]+"\n\n";
+
+
+            bandera_agregar_registros.Set();
+        }
+
+        /**
+         * Busca si el bloque número numBloque se encuentra en la caché de datos 1. Si lo está devuelve true y si no o si está pero inválido false
+         **/
+        private bool buscarEnCacheDatos1(int numBloque)
+
+        {
+            bool buscado = false;
+            bool encontrado = false;
+            int mapeo = numBloque % 8;
+
+            while (!buscado)
+            {
+                //Reserva caché
+                if (Monitor.TryEnter(cache_datos_nucleo1))
+                {
+                    try
+                    {
+                        //Si está y no está inválido pone el resultado en true
+                        if ((numBloque == cache_datos_nucleo1[mapeo, 4]) && (cache_datos_nucleo1[mapeo, 5] != -1))
+                        {
+                            encontrado = true;
+                        }
+                        buscado = true;
+                    }
+
+                    finally
+                    {
+                        //Libera caché
+                        Monitor.Exit(cache_datos_nucleo1);
+                    }
+                }
+                //Deja pasar un ciclo si no se pudo buscar porque no se obtuvo acceso a la caché
+                if (!buscado)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
+            }
+            return encontrado;
+        }
+
+        /**
+         * Busca si el bloque número numBloque se encuentra en la caché de datos 2. Si lo está devuelve true y si no o si está pero inválido false
+         **/
+        private bool buscarEnCacheDatos2(int numBloque)
+        {
+            bool buscado = false;
+            bool encontrado = false;
+            int mapeo = numBloque % 8;
+
+            while (!buscado)
+            {
+                //Reserva caché
+                if (Monitor.TryEnter(cache_datos_nucleo2))
+                {
+                    try
+                    {
+                        //Si está y no está inválido pone el resultado en true
+                        if ((numBloque == cache_datos_nucleo2[mapeo, 4]) && (cache_datos_nucleo2[mapeo, 5] != -1))
+                        {
+                            encontrado = true;
+                        }
+                        buscado = true;
+                    }
+
+                    finally
+                    {
+                        //Libera caché
+                        Monitor.Exit(cache_datos_nucleo2);
+                    }
+                }
+                //Deja pasar un ciclo si no se pudo buscar porque no se obtuvo acceso a la caché
+                if (!buscado)
+                {
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
+                }
+            }
+            return encontrado;
+        }
+
+        /**
+         * Reserva la caché propia y el bus. Luego reserva y busca en la otra caché el bloque que se encuentra en direccion. Si lo encuentra y está modificado manda a
+         * traer el bloque de la otra caché. Si no lo manda a traer de memoria
+         **/
+        private void resolverFalloCacheDatos1(int direccion)
+        {
+            //Calcular número de bloque
+            int bloque = (int)(Math.Floor((float)direccion / 16));
+
+            bool tengoBus = false;
+            bool encontradoEnOtraCache = false;
+            bool traerDeMemoria = true;
+            while (!tengoBus)
+            {
+                //Reservar caché propia
+                if (Monitor.TryEnter(cache_datos_nucleo1))
+                {
+                    try
+                    {
+                        //Reservar bus
+                        if (Monitor.TryEnter(busDatos))
+                        {
+                            try
+                            {
+                                //Reservar otra caché
+                                if (Monitor.TryEnter(cache_datos_nucleo2))
+                                {
+                                    try
+                                    {
+                                        tengoBus = true;
+                                        //Buscar bloque en la otra caché
+                                        int i = 0;
+                                        while (i < 8 && !encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo2[i, 4] == bloque)
+                                            {
+                                                encontradoEnOtraCache = true;
+                                            }
+                                            i++;
+                                        }
+                                        i--;
+
+                                        //Si se encontró, revisar si está modificado
+                                        //Los bloques de caché de datos miden lo mismo tanto en MIPS como en nuestra simulación (128 bits)
+                                        if (encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo2[i, 5] == 1)
+                                            {
+                                                traerDeMemoria = false;
+                                            }
+                                        }
+
+                                        //Si está modificado, traer el bloque de la otra caché
+                                        if (!traerDeMemoria)
+                                        {
+                                            WriteBackNucleo1(false, bloque, i);
+                                        }
+
+                                    }
+
+                                    finally
+                                    {
+                                        //Liberar caché del otro núcleo
+                                        Monitor.Exit(cache_datos_nucleo2);
+                                    }
+                                }
+
+                                //Si el bloque nuevo no está en la otra caché o no está modificado
+                                if (traerDeMemoria && tengoBus)
+                                {
+                                    WriteBackNucleo1(true, bloque, bloque % 8);
+                                }
+                            }
+
+                            finally
+                            {
+                                //Liberar bus
+                                Monitor.Exit(busDatos);
+                            }
+                        }
+                    }
+
+                    finally
+                    {
+                        //Liberar caché propia
+                        Monitor.Exit(cache_datos_nucleo1);
+                    }
+                }
+                //Dejar pasar un ciclo si no se pudo obtener acceso al bus o a la caché propia
+                if (!tengoBus)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
+            }
+        }
+
+        /**
+         * Reserva la caché propia y el bus. Luego reserva y busca en la otra caché el bloque que se encuentra en direccion. Si lo encuentra y está modificado manda a
+         * traer el bloque de la otra caché. Si no lo manda a traer de memoria
+         **/
+        private void resolverFalloCacheDatos2(int direccion)
+        {
+            //Calcular número de bloque
+            int bloque = (int)(Math.Floor((float)direccion / 16));
+            bool tengoBus = false;
+            bool encontradoEnOtraCache = false;
+            bool traerDeMemoria = true;
+            while (!tengoBus)
+            {
+                //Reservar caché propia
+                if (Monitor.TryEnter(cache_datos_nucleo2))
+                {
+                    try
+                    {
+                        //Reservar bus
+                        if (Monitor.TryEnter(busDatos))
+                        {
+                            try
+                            {
+                                //Reservar otra caché
+                                if (Monitor.TryEnter(cache_datos_nucleo1))
+                                {
+                                    try
+                                    {
+                                        tengoBus = true;
+                                        //Buscar bloque en la otra caché
+                                        int i = 0;
+                                        while (i < 8 && !encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo1[i, 4] == bloque)
+                                            {
+                                                encontradoEnOtraCache = true;
+                                            }
+                                            i++;
+                                        }
+                                        i--;
+
+                                        //Si se encontró, revisar si está modificado
+                                        //Los bloques de caché de datos miden lo mismo tanto en MIPS como en nuestra simulación (128 bits)
+                                        if (encontradoEnOtraCache)
+                                        {
+                                            if (cache_datos_nucleo1[i, 5] == 1)
+                                            {
+                                                traerDeMemoria = false;
+                                            }
+                                        }
+
+                                        //Si está modificado, traer el bloque de la otra caché
+                                        if (!traerDeMemoria)
+                                        {
+                                            WriteBackNucleo2(false, bloque, i);
+                                        }
+
+                                    }
+
+                                    finally
+                                    {
+                                        //Liberar caché del otro núcleo
+                                        Monitor.Exit(cache_datos_nucleo1);
+                                    }
+                                }
+
+                                //Si el bloque nuevo no está en la otra caché o no está modificado
+                                if (traerDeMemoria && tengoBus)
+                                {
+                                    WriteBackNucleo2(true, bloque, bloque % 8);
+                                }
+                            }
+
+                            finally
+                            {
+                                //Liberar bus
+                                Monitor.Exit(busDatos);
+                            }
+                        }
+                    }
+
+                    finally
+                    {
+                        //Liberar caché propia
+                        Monitor.Exit(cache_datos_nucleo2);
+                    }
+                }
+                //Dejar pasar un ciclo si no se pudo obtener acceso al bus o a la caché propia
+                if (!tengoBus)
+                {
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
+                }
+            }
+        }
+
+        /**
+         * Devuelve el bloque que se está reemplazando a memoria si este estaba modificado. Luego trae a caché el nuevo bloque.
+         * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
+         **/
+        private void WriteBackNucleo1(bool memoria, int bloqueNuevo, int indice)
+        {
+
+            //Si el bloque viejo está modificado, devolverlo a memoria
+            if (cache_datos_nucleo1[indice, 5] == 1)
+            {
+                int bloqueViejo = cache_datos_nucleo1[indice, 4];
+
+                int direccion = (bloqueViejo - 40) * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    RAMDatos[direccion + i] = cache_datos_nucleo1[indice, i];
+                }
+
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
+            }
+
+            //Traer bloque nuevo de memoria
+            if (memoria)
+            {
+                int direccion = (bloqueNuevo - 40) * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo1[indice, i] = RAMDatos[direccion + i];
+                }
+
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                }
+            }
+            //Traer bloque nuevo de la otra caché
+            else
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo1[indice, i] = cache_datos_nucleo2[indice, i];
+                }
+            }
+
+            //Reiniciar banderas y actualizar etiqueta
+            cache_datos_nucleo1[indice, 4] = bloqueNuevo;
+            cache_datos_nucleo1[indice, 5] = 0;
+        }
+
+        /**
+         * Devuelve el bloque que se está reemplazando a memoria si este estaba modificado. Luego trae a caché el nuevo bloque.
+         * El booleano memoria indica si hay que traer el bloque de memoria (true) o de la otra caché (false)
+         **/
+        private void WriteBackNucleo2(bool memoria, int bloqueNuevo, int indice)
+        {
+
+            //Si el bloque viejo está modificado, devolverlo a memoria
+            if (cache_datos_nucleo2[indice, 5] == 1)
+            {
+                int bloqueViejo = cache_datos_nucleo2[indice, 4];
+
+                int direccion = (bloqueViejo - 40) * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    RAMDatos[direccion + i] = cache_datos_nucleo2[indice, i];
+                }
+
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
+                }
+            }
+
+            //Traer bloque nuevo de memoria
+            if (memoria)
+            {
+                int direccion = (bloqueNuevo - 40) * 4;
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo2[indice, i] = RAMDatos[direccion + i];
+                }
+
+                //Esperar 4(2b + m) ciclos
+                for (int j = 0; j < (8 * tiempoTransferencia + 4 * tiempoLecturaEscritura); j++)
+                {
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
+                }
+            }
+            //Traer bloque nuevo de la otra caché
+            else
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    cache_datos_nucleo2[indice, i] = cache_datos_nucleo1[indice, i];
+                }
+            }
+
+            //Reiniciar banderas y actualizar etiqueta
+            cache_datos_nucleo2[indice, 4] = bloqueNuevo;
+            cache_datos_nucleo2[indice, 5] = 0;
+        }
+
+        /**
+         * Reserva el bus. Si lo consigue envía un mensaje al hilo controlador diciéndole que debe invalidar un bloque en la caché 2, espera un ciclo y devuelve true.
+         * Si no, devuelve falso.
+         **/
+        private bool invalidarBloqueNucleo1(int bloque)
+        {
+            bool invalidado = false;
+            //Reservar bus
+            if (Monitor.TryEnter(busDatos))
+            {
+                try
+                {
+                    invalidarNucleo1 = true;
+                    etiquetaBloqueNucleo1 = bloque;
+
+                    //Esperar un ciclo para que se haga efectiva la invalidación
+                    bandera_nucleo1_controlador.Set();
+                    bandera_controlador_nucleo1.WaitOne();
+                    invalidado = true;
+                }
+
+                finally
+                {
+                    //Liberar bus
+                    Monitor.Exit(busDatos);
+                }
+            }
+
+            //Devolver si se invalidó o no           
+            return invalidado;
+        }
+
+        /**
+         * Reserva el bus. Si lo consigue envía un mensaje al hilo controlador diciéndole que debe invalidar un bloque en la caché 1, espera un ciclo y devuelve true.
+         * Si no, devuelve falso.
+         **/
+        private bool invalidarBloqueNucleo2(int bloque)
+        {
+            bool invalidado = false;
+            //Reservar bus
+            if (Monitor.TryEnter(busDatos))
+            {
+                try
+                {
+                    invalidarNucleo2 = true;
+                    etiquetaBloqueNucleo2 = bloque;
+
+                    //Esperar un ciclo para que se haga efectiva la invalidación
+                    bandera_nucleo2_controlador.Set();
+                    bandera_controlador_nucleo2.WaitOne();
+                    invalidado = true;
+                }
+
+                finally
+                {
+                    //Liberar bus
+                    Monitor.Exit(busDatos);
+                }
+            }
+
+            //Devolver si se invalidó o no
+
+            return invalidado;
+        }
+
+
 
         private void ejecutarInstruccion1(ref int[] ins, int numHilo)
         {
+            int bloque;
+            int dato;
+            bool enCache;
+            int indiceBloque ;
+            bool bloqueInvalidado;
+
             switch (ins[0])
             {
                 case 8: //ADDI
                     registro_nucleo1[ins[2]] = registro_nucleo1[ins[1]] + ins[3];
+    
                     break;
 
                 case 32: //ADD
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] + registro_nucleo1[ins[2]];
+
                     break;
 
                 case 34: //SUB
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] - registro_nucleo1[ins[2]];
+
                     break;
 
                 case 12: //MUL
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] * registro_nucleo1[ins[2]];
+
                     break;
 
                 case 14: //DIV
+                    
                     registro_nucleo1[ins[3]] = registro_nucleo1[ins[1]] / registro_nucleo1[ins[2]];
+
                     break;
 
                 case 4: //BEQZ
+                    
                     if (registro_nucleo1[ins[1]] == 0)
                     {
-                        PC1 = ins[3];
+                        PC1 += ins[3] * 4;
                     }
                     break;
 
                 case 5: //BNEZ
                     if (registro_nucleo1[ins[1]] != 0)
                     {
-                        PC1 = ins[3];
+                        PC1 += ins[3] * 4;
                     }
                     break;
 
                 case 3: //JAL
                     registro_nucleo1[31] = PC1;
                     PC1 += ins[3];
+
                     break;
 
                 case 2: //JR
                     PC1 = registro_nucleo1[ins[1]];
+
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
+                    agregarRegistros(ref registro_nucleo1, numHilo, 1);
+                    break;  
+                                
+                case 35: //LW
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+                    //Preguntar si el bloque está en caché
+                    enCache = buscarEnCacheDatos1(bloque);
+
+                    //Si no está resolver el fallo de caché
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                    }
+
+                    //Leer el dato
+                    registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
+
+                    break;
+
+                case 43: //SW
+                    /**
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe y marca el bloque como modificado.
+                     **/
+                     bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                     dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                     
+                     //Si el bloque no está en caché lo manda a traer
+                     if (!buscarEnCacheDatos1(bloque))
+                     {
+                         resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                     }
+                     
+                     indiceBloque = bloque % 8;
+                     bloqueInvalidado = false;
+
+
+                     while (!bloqueInvalidado)
+                     {
+                         //Si el bloque se invalidó repita la instrucción
+                         if (cache_datos_nucleo1[indiceBloque, 5] == -1)
+                         {
+                             PC1 -= 4;
+                             bloqueInvalidado = true;
+                         }
+                         else
+                         {
+                             //Reservar caché propia
+                             if (Monitor.TryEnter(cache_datos_nucleo1))
+                             {
+                                 try
+                                 {
+                                     //Si el bloque está compartido hay que invalidarlo
+                                     if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                     {
+                                         bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                     }
+
+                                     //Si no, no hay que invalidar y se puede hacer el store
+                                     else
+                                     {
+                                         bloqueInvalidado = true;
+                                     }
+
+                                     //Si se tiene certeza de que el bloque fue invalidado se escribe
+                                     if (bloqueInvalidado)
+                                     {
+                                         cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                         cache_datos_nucleo1[indiceBloque, 5] = 1;
+                                     }
+                                 }
+                                 finally
+                                 {
+                                     //Liberar caché propia
+                                     Monitor.Exit(cache_datos_nucleo1);
+                                 }
+                             }
+
+                             if (!bloqueInvalidado)
+                             {
+                                 //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                 bandera_nucleo1_controlador.Set();
+                                 bandera_controlador_nucleo1.WaitOne();
+                             }
+                         }
+                     }
+                    break;
+
+                case 50: //LL
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido y se guarda en RL la dirección del candado.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    
+                    //Se pregunta si el bloque está en caché
+                    enCache = buscarEnCacheDatos1(bloque);
+
+                    //Si no está se manda a traer
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                    }
+
+                    //Se lee el dato, se actualiza el RL y se marca el candado como activo
+                    registro_nucleo1[ins[2]] = cache_datos_nucleo1[bloque % 8, dato];
+                    registro_nucleo1[32] = registro_nucleo1[ins[1]] + ins[3];
+                    bloqueCandadoActivoNucleo1 = bloque;
+                    break;
+
+                case 51: //SC
+                    /**
+                     * Si el candado que comparte con el LL se desactivó pone un 0 en el registro indicado, si no realiza lo siguiente:
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe, marca el bloque como modificado y marca el candado
+                     * con el LL como desactivado.
+                     **/
+                    if (registro_nucleo1[32] == registro_nucleo1[ins[1]] + ins[3])
+                    {
+       
+                        bloque = (int)(Math.Floor((float)(registro_nucleo1[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                        dato = ((registro_nucleo1[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                        
+                        //Si el bloque no está en caché se manda a traer
+                        if (!buscarEnCacheDatos1(bloque))
+                        {
+                            resolverFalloCacheDatos1(registro_nucleo1[ins[1]] + ins[3]);
+                        }
+
+                        indiceBloque = bloque % 8;
+                        bloqueInvalidado = false;
+
+                        while (!bloqueInvalidado)
+                        {
+                            //Si el bloque se invalidó no haga nada y repita la instrucción
+                            if (cache_datos_nucleo1[indiceBloque, 5] == -1)
+                            {
+                                PC1 -= 4;
+                                bloqueInvalidado = true;
+                            }
+                            else
+                            {
+                                //Reservar caché propia
+                                if (Monitor.TryEnter(cache_datos_nucleo1))
+                                {
+                                    try
+                                    {
+                                        //Si el bloque está compartido hay que invalidarlo
+                                        if (cache_datos_nucleo1[indiceBloque, 5] == 0)
+                                        {
+                                            bloqueInvalidado = invalidarBloqueNucleo1(bloque);
+                                        }
+
+                                         //Si no, no hay que invalidar y se puede hacer el store
+                                        else
+                                        {
+                                            bloqueInvalidado = true;
+                                        }
+
+                                        //Si se tiene certeza de que el bloque está invalidado se escribe en él, se marca el candado como inactivo y el bloque como modificado
+                                        if (bloqueInvalidado)
+                                        {
+                                            cache_datos_nucleo1[indiceBloque, dato] = registro_nucleo1[ins[2]];
+                                            bloqueCandadoActivoNucleo1 = -1;
+                                            cache_datos_nucleo1[indiceBloque, 5] = 1;
+
+                                        }
+
+                                    }
+                                    finally
+                                    {
+                                        //Liberar caché propia
+                                        Monitor.Exit(cache_datos_nucleo1);
+                                    }
+                                }
+
+
+                                if (!bloqueInvalidado)
+                                {
+                                    //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                    bandera_nucleo1_controlador.Set();
+                                    bandera_controlador_nucleo1.WaitOne();
+                                }
+                            }
+
+                           
+                        }
+                    }
+                    //Se devuelve un 0 en Rx
+                    else
+                    {
+          
+                        registro_nucleo1[ins[2]] = 0;
+                    }
+          
                     break;
             }
         }
 
         private void ejecutarInstruccion2(ref int[] ins, int numHilo)
         {
+            int bloque;
+            int dato;
+            bool enCache;
+            int indiceBloque;
+            bool bloqueInvalidado;
+
             switch (ins[0])
             {
                 case 8: //ADDI
                     registro_nucleo2[ins[2]] = registro_nucleo2[ins[1]] + ins[3];
+
                     break;
 
                 case 32: //ADD
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] + registro_nucleo2[ins[2]];
+
                     break;
 
                 case 34: //SUB
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] - registro_nucleo2[ins[2]];
+     
                     break;
 
                 case 12: //MUL
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] * registro_nucleo2[ins[2]];
+
                     break;
 
                 case 14: //DIV
                     registro_nucleo2[ins[3]] = registro_nucleo2[ins[1]] / registro_nucleo2[ins[2]];
+ 
                     break;
 
                 case 4: //BEQZ
                     if (registro_nucleo2[ins[1]] == 0)
                     {
-                        PC2 = ins[3];
+                        PC2 += ins[3] * 4;
+
                     }
                     break;
 
                 case 5: //BNEZ
                     if (registro_nucleo2[ins[1]] != 0)
                     {
-                        PC2 = ins[3];
+                        PC2 += ins[3] * 4;
+
                     }
                     break;
 
                 case 3: //JAL
                     registro_nucleo2[31] = PC2;
                     PC2 += ins[3];
+
                     break;
 
                 case 2: //JR
-                    PC2 = registro_nucleo1[ins[1]];
+
+                    PC2 = registro_nucleo2[ins[1]];
+
                     break;
 
                 case 63: //FIN
                     fin_hilos[numHilo] = true;
+
+                    agregarRegistros(ref registro_nucleo2, numHilo, 2);
+                    break;
+
+
+                case 35: //LW
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+                    //Se pregunta si el bloque está en caché
+                    enCache = buscarEnCacheDatos2(bloque);
+
+                    //Si no está se manda a traer
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                    }
+
+                    //Se lee el dato
+                    registro_nucleo2[ins[2]] = cache_datos_nucleo2[bloque % 8, dato];
+
+                    break;
+
+                case 43: //SW
+                    /**
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe y marca el bloque como modificado.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+                    
+                    //Si el bloque no está en caché lo manda a traer
+                    if (!buscarEnCacheDatos2(bloque))
+                    {
+                        resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                    }
+
+                    indiceBloque = bloque % 8;
+                    bloqueInvalidado = false;
+
+                    while (!bloqueInvalidado)
+                    {
+                        //Si el bloque se invalidó no haga nada y repita la instrucción
+                        if (cache_datos_nucleo2[indiceBloque, 5] == -1)
+                        {
+                            PC2 -= 4;
+                            bloqueInvalidado = true;
+                        }
+                        else
+                        {
+                            //Reservar caché propia
+                            if (Monitor.TryEnter(cache_datos_nucleo2))
+                            {
+                                try
+                                {
+                                    //Si el bloque está compartido hay que invalidarlo
+                                    if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                    {
+                                        bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                    }
+
+                                    //Si no, no hay que invalidar y se puede hacer el store
+                                    else
+                                    {
+                                        bloqueInvalidado = true;
+                                    }
+
+                                    //Si se tiene certeza de que el bloque se invalidó se escribe en él y se marca como modificado
+                                    if (bloqueInvalidado)
+                                    {
+                                        cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                        cache_datos_nucleo2[indiceBloque, 5] = 1;
+                                    }
+                                }
+                                finally
+                                {
+                                    //Liberar caché propia
+                                    Monitor.Exit(cache_datos_nucleo2);
+                                }
+                            }
+
+                            if (!bloqueInvalidado)
+                            {
+                                //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                bandera_nucleo2_controlador.Set();
+                                bandera_controlador_nucleo2.WaitOne();
+                            }
+                        }
+                    }
+                    break;
+
+                case 50: //LL
+                    /**
+                     * Pregunta si el bloque donde está el dato requerido está en caché y si no está lo manda a traer. Una vez que se tiene el bloque se lee
+                     * de caché el dato requerido y se guarda en RL la dirección del candado.
+                     **/
+                    bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                    dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+                    //Se pregunta si el bloque está en caché
+                    enCache = buscarEnCacheDatos2(bloque);
+
+                    //Si no está se manda a traer
+                    if (!enCache)
+                    {
+                        resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                    }
+
+                    //Se lee el dato, se guarda la dirección del candado en RL y este se marca como activo
+                    registro_nucleo2[ins[2]] = cache_datos_nucleo2[bloque % 8, dato];
+                    registro_nucleo2[32] = registro_nucleo2[ins[1]] + ins[3];
+                    bloqueCandadoActivoNucleo2 = bloque;
+                    break;
+
+                case 51: //SC
+                    /**
+                     * Si el candado que comparte con el LL se desactivó pone un 0 en el registro indicado, si no realiza lo siguiente:
+                     * Pregunta si el bloque donde está el dato que se va a escribir está en caché y si no lo manda a traer. Una vez que lo tiene reserva su caché.
+                     * Esto se hace para que el otro núcleo no pueda invalidar un bloque de esta caché en ese momento si trata de hacerlo. Luego, si el bloque está
+                     * compartido lo manda a invalidar a la otra caché y una vez que está invalidado escribe, marca el bloque como modificado y marca el candado
+                     * con el LL como desactivado.
+                     **/
+                    if (registro_nucleo2[32] == registro_nucleo2[ins[1]] + ins[3])
+                    {
+
+                        bloque = (int)(Math.Floor((float)(registro_nucleo2[ins[1]] + ins[3]) / 16)); //Calcula el número de bloque
+                        dato = ((registro_nucleo2[ins[1]] + ins[3]) % 16) / 4; //Calcula el número de dato dentro del bloque
+
+                        //Si el bloque no está en caché se manda a traer
+                        if (!buscarEnCacheDatos2(bloque))
+                        {
+                            resolverFalloCacheDatos2(registro_nucleo2[ins[1]] + ins[3]);
+                        }
+
+                        indiceBloque = bloque % 8;
+                        bloqueInvalidado = false;
+
+                        while (!bloqueInvalidado)
+                        {
+                            //Si el bloque se invalidó no haga nada y repita la instrucción
+                            if (cache_datos_nucleo2[indiceBloque, 5] == -1)
+                            {
+                                PC2 -= 4;
+                                bloqueInvalidado = true;
+                            }
+                            else
+                            {
+                                //Reservar caché propia
+                                if (Monitor.TryEnter(cache_datos_nucleo2))
+                                {
+                                    try
+                                    {
+                                        //Si el bloque está compartido hay que invalidarlo
+                                        if (cache_datos_nucleo2[indiceBloque, 5] == 0)
+                                        {
+                                            bloqueInvalidado = invalidarBloqueNucleo2(bloque);
+                                        }
+
+                                        //Si no, no hay que invalidar y se puede hacer el store
+                                        else
+                                        {
+                                            bloqueInvalidado = true;
+                                        }
+
+                                        //Si se tiene certeza de que el bloque se invalidó se escribe en él, se marca como modificado y se marca el candado como inactivo
+                                        if (bloqueInvalidado)
+                                        {
+                                            cache_datos_nucleo2[indiceBloque, dato] = registro_nucleo2[ins[2]];
+                                            bloqueCandadoActivoNucleo2 = -1;
+                                            cache_datos_nucleo2[indiceBloque, 5] = 1;
+                                        }
+                                    }
+                                    finally
+                                    {
+                                        //Liberar caché propia
+                                        Monitor.Exit(cache_datos_nucleo2);
+                                    }
+                                }
+
+                                if (!bloqueInvalidado)
+                                {
+                                    //Si por alguna razón no se pudo invalidar el bloque, dejar que pase un ciclo e intentarlo en el próximo
+                                    bandera_nucleo2_controlador.Set();
+                                    bandera_controlador_nucleo2.WaitOne();
+                                }
+                            }
+                        }
+                    }
+                    //Se devuelve un 0 en Rx
+                    else
+                    {
+                        registro_nucleo2[ins[2]] = 0;
+                    }
                     break;
             }
         }
 
-        
-
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            delay = 0;
+        }
     }
 }

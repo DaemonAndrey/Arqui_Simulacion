@@ -39,10 +39,10 @@
             this.radioButton1 = new System.Windows.Forms.RadioButton();
             this.label4 = new System.Windows.Forms.Label();
             this.radioButton2 = new System.Windows.Forms.RadioButton();
-            this.button2 = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
             this.label5 = new System.Windows.Forms.Label();
             this.textBox4 = new System.Windows.Forms.TextBox();
+            this.label6 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // label1
@@ -54,10 +54,11 @@
             this.label1.Size = new System.Drawing.Size(137, 14);
             this.label1.TabIndex = 1;
             this.label1.Text = "Cantidad de hilos: ";
-            this.label1.Click += new System.EventHandler(this.label1_Click);
             // 
             // richTextBox1
             // 
+            this.richTextBox1.BackColor = System.Drawing.SystemColors.ControlLightLight;
+            this.richTextBox1.ForeColor = System.Drawing.SystemColors.MenuText;
             this.richTextBox1.Location = new System.Drawing.Point(418, 54);
             this.richTextBox1.Name = "richTextBox1";
             this.richTextBox1.Size = new System.Drawing.Size(406, 279);
@@ -71,7 +72,6 @@
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(100, 20);
             this.textBox1.TabIndex = 3;
-            this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
             // 
             // label2
             // 
@@ -151,16 +151,6 @@
             this.radioButton2.UseVisualStyleBackColor = true;
             this.radioButton2.CheckedChanged += new System.EventHandler(this.radioButton2_CheckedChanged);
             // 
-            // button2
-            // 
-            this.button2.Location = new System.Drawing.Point(565, 355);
-            this.button2.Name = "button2";
-            this.button2.Size = new System.Drawing.Size(103, 23);
-            this.button2.TabIndex = 12;
-            this.button2.Text = "Siguiente ciclo";
-            this.button2.UseVisualStyleBackColor = true;
-            this.button2.Visible = false;
-            // 
             // button3
             // 
             this.button3.Location = new System.Drawing.Point(148, 355);
@@ -188,15 +178,25 @@
             this.textBox4.Size = new System.Drawing.Size(100, 20);
             this.textBox4.TabIndex = 15;
             // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Font = new System.Drawing.Font("DejaVu Sans", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label6.Location = new System.Drawing.Point(36, 227);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(80, 15);
+            this.label6.TabIndex = 16;
+            this.label6.Text = "4*(2b + m)";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(846, 390);
+            this.Controls.Add(this.label6);
             this.Controls.Add(this.textBox4);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.button3);
-            this.Controls.Add(this.button2);
             this.Controls.Add(this.radioButton2);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.radioButton1);
@@ -228,10 +228,10 @@
         private System.Windows.Forms.RadioButton radioButton1;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.RadioButton radioButton2;
-        private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Button button3;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.TextBox textBox4;
+        private System.Windows.Forms.Label label6;
     }
 }
 
